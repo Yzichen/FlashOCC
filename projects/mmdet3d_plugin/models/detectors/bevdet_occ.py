@@ -123,6 +123,23 @@ class BEVDetOCC(BEVDet):
         occ_preds = self.occ_head.get_occ(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         return occ_preds
 
+    def forward_dummy(self,
+                      points=None,
+                      img_metas=None,
+                      img_inputs=None,
+                      **kwargs):
+        # img_feats: List[(B, C, Dz, Dy, Dx)/(B, C, Dy, Dx) , ]
+        # pts_feats: None
+        # depth: (B*N_views, D, fH, fW)
+        img_feats, pts_feats, depth = self.extract_feat(
+            points, img_inputs=img_inputs, img_metas=img_metas, **kwargs)
+        occ_bev_feature = img_feats[0]
+        if self.upsample:
+            occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                            mode='bilinear', align_corners=True)
+        outs = self.occ_head(occ_bev_feature)
+        return outs
+
 
 @DETECTORS.register_module()
 class BEVStereo4DOCC(BEVStereo4D):
@@ -230,3 +247,20 @@ class BEVStereo4DOCC(BEVStereo4D):
         outs = self.occ_head(img_feats)
         occ_preds = self.occ_head.get_occ(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         return occ_preds
+
+    def forward_dummy(self,
+                      points=None,
+                      img_metas=None,
+                      img_inputs=None,
+                      **kwargs):
+        # img_feats: List[(B, C, Dz, Dy, Dx)/(B, C, Dy, Dx) , ]
+        # pts_feats: None
+        # depth: (B*N_views, D, fH, fW)
+        img_feats, pts_feats, depth = self.extract_feat(
+            points, img_inputs=img_inputs, img_metas=img_metas, **kwargs)
+        occ_bev_feature = img_feats[0]
+        if self.upsample:
+            occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                            mode='bilinear', align_corners=True)
+        outs = self.occ_head(occ_bev_feature)
+        return outs
