@@ -35,7 +35,7 @@ step 1. Please prepare environment as that in [Docker](docker/Dockerfile).
 step 2. Prepare flashocc repo by.
 ```shell script
 git clone https://github.com/YZichen/FlashOCC.git
-cd FlashOCC
+cd FlashOCC/projects
 pip install -v -e .
 ```
 
