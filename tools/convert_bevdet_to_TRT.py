@@ -1,4 +1,6 @@
 import argparse
+import sys
+sys.path.insert(0, os.getcwd())
 
 import torch.onnx
 from mmcv import Config
@@ -95,6 +97,7 @@ def parse_args():
         action='store_true',
         help='Whether to fuse conv and bn, this will slightly increase'
         'the inference speed')
+    parser.add_argument('--calib_num', type=int, help='num to calib')
     args = parser.parse_args()
     return args
 
@@ -106,7 +109,8 @@ def get_plugin_names():
 def create_calib_input_data_impl(calib_file: str,
                                  dataloader: DataLoader,
                                  model_partition: bool = False,
-                                 metas: list = []) -> None:
+                                 metas: list = [],
+                                 calib_num = None) -> None:
     with h5py.File(calib_file, mode='w') as file:
         calib_data_group = file.create_group('calib_data')
         assert not model_partition
@@ -125,6 +129,8 @@ def create_calib_input_data_impl(calib_file: str,
         ]
         for data_id, input_data in enumerate(tqdm.tqdm(dataloader)):
             # save end2end data
+            if (calib_num is not None) and (data_id > calib_num):
+                break
             input_tensor = input_data['img_inputs'][0][0]
             input_ndarray = input_tensor.squeeze(0).detach().cpu().numpy()
             # print(input_ndarray.shape, input_ndarray.dtype)
@@ -152,7 +158,8 @@ def create_calib_input_data(calib_file: str,
                                                         mmcv.Config]] = None,
                             dataset_type: str = 'val',
                             device: str = 'cpu',
-                            metas: list = [None]) -> None:
+                            metas: list = [None],
+                            calib_num = None) -> None:
     """Create dataset for post-training quantization.
 
     Args:
@@ -190,7 +197,7 @@ def create_calib_input_data(calib_file: str,
             dataset, 1, 1, dist=False, shuffle=False)
 
         create_calib_input_data_impl(
-            calib_file, dataloader, model_partition=False, metas=metas)
+            calib_file, dataloader, model_partition=False, metas=metas, calib_num=calib_num)
 
 
 def from_onnx(onnx_model: Union[str, onnx.ModelProto],
@@ -287,11 +294,15 @@ def from_onnx(onnx_model: Union[str, onnx.ModelProto],
     assert engine is not None, 'Failed to create TensorRT engine'
 
     save(engine, output_file_prefix + '.engine')
+    print('Save engine at ', output_file_prefix + '.engine')
     return engine
 
 
 def main():
     args = parse_args()
+
+    max_workspace_size = 200*200*256*(2**8)
+    
     if not os.path.exists(args.work_dir):
         os.makedirs(args.work_dir)
 
@@ -314,6 +325,29 @@ def main():
 
     cfg = compat_cfg(cfg)
     cfg.gpu_ids = [0]
+
+    # import modules from plguin/xx, registry will be updated
+    if hasattr(cfg, 'plugin'):
+        if cfg.plugin:
+            import importlib
+            if hasattr(cfg, 'plugin_dir'):
+                plugin_dir = cfg.plugin_dir
+                _module_dir = os.path.dirname(plugin_dir)
+                _module_dir = _module_dir.split('/')
+                _module_path = _module_dir[0]
+
+                for m in _module_dir[1:]:
+                    _module_path = _module_path + '.' + m
+                print(_module_path)
+                plg_lib = importlib.import_module(_module_path)
+            else:
+                # import dir is the dirpath for the config file
+                _module_dir = os.path.dirname(args.config)
+                _module_dir = _module_dir.split('/')
+                _module_path = _module_dir[0]
+                for m in _module_dir[1:]:
+                    _module_path = _module_path + '.' + m
+                plg_lib = importlib.import_module(_module_path)
 
     # build the dataloader
     test_dataloader_default_args = dict(
@@ -342,10 +376,13 @@ def main():
     # build the model and load checkpoint
     cfg.model.train_cfg = None
     model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
-    assert model.img_view_transformer.grid_size[0] == 128
-    assert model.img_view_transformer.grid_size[1] == 128
-    assert model.img_view_transformer.grid_size[2] == 1
-    load_checkpoint(model, args.checkpoint, map_location='cpu')
+    # assert model.img_view_transformer.grid_size[0] == 128
+    # assert model.img_view_transformer.grid_size[1] == 128
+    # assert model.img_view_transformer.grid_size[2] == 1
+    if os.path.exists(args.checkpoint):
+        load_checkpoint(model, args.checkpoint, map_location='cpu')
+    else:
+        print(args.checkpoint, " does not exists!")
     if args.fuse_conv_bn:
         model_prefix = model_prefix + '_fuse'
         model = fuse_module(model)
@@ -354,9 +391,22 @@ def main():
 
     for i, data in enumerate(data_loader):
         inputs = [t.cuda() for t in data['img_inputs'][0]]
-        metas = model.get_bev_pool_input(inputs)
+        if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT']:
+            metas = model.get_bev_pool_input(inputs, img_metas=data['img_metas'])
+        else:
+            metas = model.get_bev_pool_input(inputs)
         img = inputs[0].squeeze(0)
+        if img.shape[0] > 6:
+            img = img[:6]
         with torch.no_grad():
+            if (model.wdet3d == True) and (model.wocc == False) :
+                output_names=[f'output_{j}' for j in range(6 * len(model.pts_bbox_head.task_heads))]
+            elif (model.wdet3d == True) and (model.wocc == True) :
+                output_names=[f'output_{j}' for j in range(1 + 6 * len(model.pts_bbox_head.task_heads))]
+            elif (model.wdet3d == False) and (model.wocc == True) :
+                output_names=[f'output_{j}' for j in range(1)]
+            else:
+                raise(" At least one of wdet3d and wocc is set as True!! ")
             torch.onnx.export(
                 model,
                 (img.float().contiguous(), metas[1].int().contiguous(),
@@ -368,9 +418,10 @@ def main():
                     'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
                     'interval_starts', 'interval_lengths'
                 ],
-                output_names=[f'output_{j}' for j in
-                              range(6 * len(model.pts_bbox_head.task_heads))])
+                output_names=output_names)
         break
+    print('output_names:', output_names)
+    print('====== onnx is saved at : ', args.work_dir + model_prefix + '.onnx')
     # check onnx model
     onnx_model = onnx.load(args.work_dir + model_prefix + '.onnx')
     try:
@@ -412,7 +463,7 @@ def main():
             type='tensorrt',
             common_config=dict(
                 fp16_mode=args.fp16,
-                max_workspace_size=1073741824,
+                max_workspace_size=max_workspace_size,
                 int8_mode=args.int8),
             model_inputs=[dict(input_shapes=input_shapes)]),
         codebase_config=dict(
@@ -429,7 +480,8 @@ def main():
             dataset_cfg=None,
             dataset_type='val',
             device='cuda:0',
-            metas=metas)
+            metas=metas,
+            calib_num=args.calib_num)
 
     from_onnx(
         args.work_dir + model_prefix + '.onnx',
@@ -439,11 +491,11 @@ def main():
         int8_param=dict(
             calib_file=os.path.join(args.work_dir, 'calib_data.h5'),
             model_type='end2end'),
-        max_workspace_size=1 << 30,
+        max_workspace_size=max_workspace_size,
         input_shapes=input_shapes)
 
-    if args.int8:
-        os.remove(calib_path)
+    # if args.int8:
+    #     os.remove(calib_path)
 
 
 if __name__ == '__main__':

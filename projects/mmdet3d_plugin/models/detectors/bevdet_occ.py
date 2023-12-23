@@ -1,4 +1,5 @@
 # Copyright (c) Phigent Robotics. All rights reserved.
+from ...ops import TRTBEVPoolv2
 from .bevdet import BEVDet
 from .bevstereo4d import BEVStereo4D
 from mmdet3d.models import DETECTORS
@@ -264,3 +265,88 @@ class BEVStereo4DOCC(BEVStereo4D):
                                             mode='bilinear', align_corners=True)
         outs = self.occ_head(occ_bev_feature)
         return outs
+    
+
+@DETECTORS.register_module()
+class BEVDetOCCTRT(BEVDetOCC):
+    def __init__(self,
+                 wocc=True,
+                 wdet3d=True,
+                 uni_train=True,
+                 **kwargs):
+        super(BEVDetOCCTRT, self).__init__(**kwargs)
+        self.wocc = wocc
+        self.wdet3d = wdet3d
+        self.uni_train = uni_train
+        
+    def result_serialize(self, outs_det3d=None, outs_occ=None):
+        outs_ = []
+        if outs_det3d is not None:
+            for out in outs_det3d:
+                for key in ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']:
+                    outs_.append(out[0][key])
+        if outs_occ is not None:
+            outs_.append(outs_occ)
+        return outs_
+
+    def result_deserialize(self, outs):
+        outs_ = []
+        keys = ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']
+        for head_id in range(len(outs) // 6):
+            outs_head = [dict()]
+            for kid, key in enumerate(keys):
+                outs_head[0][key] = outs[head_id * 6 + kid]
+            outs_.append(outs_head)
+        return outs_
+
+    def forward(
+        self,
+        img,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+    ):
+        x = self.img_backbone(img)
+        x = self.img_neck(x)
+        x = self.img_view_transformer.depth_net(x[0])
+        depth = x[:, :self.img_view_transformer.D].softmax(dim=1)
+        tran_feat = x[:, self.img_view_transformer.D:(
+            self.img_view_transformer.D +
+            self.img_view_transformer.out_channels)]
+        tran_feat = tran_feat.permute(0, 2, 3, 1)
+        x = TRTBEVPoolv2.apply(depth.contiguous(), tran_feat.contiguous(),
+                               ranks_depth, ranks_feat, ranks_bev,
+                               interval_starts, interval_lengths,
+                               int(self.img_view_transformer.grid_size[0].item()),
+                               int(self.img_view_transformer.grid_size[1].item()),
+                               int(self.img_view_transformer.grid_size[2].item())
+                               )
+        x = x.permute(0, 3, 1, 2).contiguous()
+        # return [x, 2*x, 3*x, 4*x, 5*x, 6*x, 7*x]
+        bev_feature = self.img_bev_encoder_backbone(x)
+        occ_bev_feature = self.img_bev_encoder_neck(bev_feature)
+
+        outs_occ = None
+        if self.wocc == True:
+            if self.uni_train == True:
+                if self.upsample:
+                    occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                                    mode='bilinear', align_corners=True)
+            outs_occ = self.occ_head(occ_bev_feature)
+
+        outs_det3d = None
+        if self.wdet3d == True:
+            outs_det3d = self.pts_bbox_head([det_bev_feature])
+
+        outs = self.result_serialize(outs_det3d, outs_occ)
+        return outs
+
+    def get_bev_pool_input(self, input):
+        input = self.prepare_inputs(input)
+        coor = self.img_view_transformer.get_lidar_coor(*input[1:7])
+        return self.img_view_transformer.voxel_pooling_prepare_v2(coor)
+
+
+

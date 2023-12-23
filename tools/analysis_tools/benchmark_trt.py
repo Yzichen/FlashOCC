@@ -1,5 +1,9 @@
 import time
 from typing import Dict, Optional, Sequence, Union
+import os
+from os import path as osp
+import sys
+sys.path.insert(0, os.getcwd())
 
 import tensorrt as trt
 import torch
@@ -129,6 +133,29 @@ def main():
     if not args.prefetch:
         cfg.data.test_dataloader.workers_per_gpu=0
 
+    # import modules from plguin/xx, registry will be updated
+    if hasattr(cfg, 'plugin'):
+        if cfg.plugin:
+            import importlib
+            if hasattr(cfg, 'plugin_dir'):
+                plugin_dir = cfg.plugin_dir
+                _module_dir = os.path.dirname(plugin_dir)
+                _module_dir = _module_dir.split('/')
+                _module_path = _module_dir[0]
+
+                for m in _module_dir[1:]:
+                    _module_path = _module_path + '.' + m
+                print(_module_path)
+                plg_lib = importlib.import_module(_module_path)
+            else:
+                # import dir is the dirpath for the config file
+                _module_dir = os.path.dirname(args.config)
+                _module_dir = _module_dir.split('/')
+                _module_path = _module_dir[0]
+                for m in _module_dir[1:]:
+                    _module_path = _module_path + '.' + m
+                plg_lib = importlib.import_module(_module_path)
+
     # build dataloader
     assert cfg.data.test.test_mode
     test_dataloader_default_args = dict(
@@ -145,9 +172,14 @@ def main():
     model = build_model(cfg.model, test_cfg=cfg.get('test_cfg'))
 
     # build tensorrt model
-    trt_model = TRTWrapper(args.engine,
-                           [f'output_{i}' for i in
-                            range(6 * len(model.pts_bbox_head.task_heads))])
+    if (cfg.model.get('wdet3d', True) == True) and (cfg.model.get('wocc', True) == False):
+        trt_model = TRTWrapper(args.engine, [f'output_{i}' for i in range(6 * len(model.pts_bbox_head.task_heads))])
+    elif (cfg.model.get('wdet3d', True) == True) and (cfg.model.get('wocc', True) == True):
+        trt_model = TRTWrapper(args.engine, [f'output_{i}' for i in range(1 + 6 * len(model.pts_bbox_head.task_heads))])
+    elif (cfg.model.get('wdet3d', True) == False) and (cfg.model.get('wocc', True) == True):
+        trt_model = TRTWrapper(args.engine, [f'output_{i}' for i in range(1)])
+    else:
+        raise(" At least one of wdet3d and wocc is set as True!! ")
 
     num_warmup = 50
     pure_inf_time = 0
@@ -159,7 +191,10 @@ def main():
     for i, data in enumerate(data_loader):
         if init_:
             inputs = [t.cuda() for t in data['img_inputs'][0]]
-            metas_ = model.get_bev_pool_input(inputs)
+            if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT']:
+                metas_ = model.get_bev_pool_input(inputs, img_metas=data['img_metas'])
+            else:
+                metas_ = model.get_bev_pool_input(inputs)
             metas = dict(
                 ranks_bev=metas_[0].int().contiguous(),
                 ranks_depth=metas_[1].int().contiguous(),
@@ -168,24 +203,39 @@ def main():
                 interval_lengths=metas_[4].int().contiguous())
             init_ = False
         img = data['img_inputs'][0][0].cuda().squeeze(0).contiguous()
+        if img.shape[0] > 6:
+            img = img[:6]
         torch.cuda.synchronize()
         start_time = time.perf_counter()
         trt_output = trt_model.forward(dict(img=img, **metas))
 
         # postprocessing
         if args.postprocessing:
-            trt_output = [trt_output[f'output_{i}'] for i in
-                          range(6 * len(model.pts_bbox_head.task_heads))]
-            pred = model.result_deserialize(trt_output)
-            img_metas = [dict(box_type_3d=LiDARInstance3DBoxes)]
-            bbox_list = model.pts_bbox_head.get_bboxes(
-                pred, img_metas, rescale=True)
-            bbox_results = [
-                bbox3d2result(bboxes, scores, labels)
-                for bboxes, scores, labels in bbox_list
-            ]
+            if cfg.model.get('wdet3d', True):
+                trt_output_det = [trt_output[f'output_{i}'] for i in
+                            range(6 * len(model.pts_bbox_head.task_heads))]
+                pred = model.result_deserialize(trt_output_det)
+                img_metas = [dict(box_type_3d=LiDARInstance3DBoxes)]
+                bbox_list = model.pts_bbox_head.get_bboxes(
+                    pred, img_metas, rescale=True)
+                bbox_results = [
+                    bbox3d2result(bboxes, scores, labels)
+                    for bboxes, scores, labels in bbox_list
+                ]
+            if cfg.model.get('wocc', True):
+                # occupancy
+                if cfg.model.get('wdet3d', True):
+                    occ_preds = model.occ_head.get_occ(trt_output['output_6'])      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+                else:
+                    occ_preds = model.occ_head.get_occ(trt_output['output_0'])      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
             if args.eval:
-                results.append(bbox_results[0])
+                if cfg.model.get('wdet3d', True) and (not cfg.model.get('wocc', True)):
+                    results.append(bbox_results[0])
+                elif cfg.model.get('wdet3d', True) and cfg.model.get('wocc', True):
+                    results.append({'pts_bbox': bbox_results[0], 'pred_occ': occ_preds[0]})
+                elif (not cfg.model.get('wdet3d', False)) and cfg.model.get('wocc', True):
+                    results.append(occ_preds[0])
+
         torch.cuda.synchronize()
         elapsed = time.perf_counter() - start_time
 

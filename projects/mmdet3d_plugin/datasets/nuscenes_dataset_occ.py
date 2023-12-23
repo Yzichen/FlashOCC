@@ -56,7 +56,8 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
         """
         input_dict = super(NuScenesDatasetOccpancy, self).get_data_info(index)
         # standard protocol modified from SECOND.Pytorch
-        input_dict['occ_gt_path'] = os.path.join(self.data_root, self.data_infos[index]['occ_path'])
+        # input_dict['occ_gt_path'] = os.path.join(self.data_root, self.data_infos[index]['occ_path'])
+        input_dict['occ_gt_path'] = self.data_infos[index]['occ_path']
         return input_dict
 
     def evaluate(self, occ_results, runner=None, show_dir=None, **eval_kwargs):
@@ -69,7 +70,8 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
         for index, occ_pred in enumerate(tqdm(occ_results)):
             # occ_pred: (Dx, Dy, Dz)
             info = self.data_infos[index]
-            occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
+            # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
+            occ_gt = np.load(os.path.join(info['occ_path'], 'labels.npz'))
             gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
             mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
             mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)

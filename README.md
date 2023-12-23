@@ -1,4 +1,11 @@
 # FlashOcc: Fast and Memory-Efficient Occupancy Prediction via Channel-to-Height Plugin
+
+## News
+- **2023.12.23** Release the quick testing code via TensorRT in MMDeploy.
+- **2023.11.28** Release the training code for FlashOcc.
+
+<!-- - [History](./docs/en/news.md) -->
+
 <!-- ## Introduction -->
 
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2311.12058)
@@ -30,44 +37,10 @@ demonstrating its potential for deployment.
 | [**FlashOCC-STBase-4D-Stereo-512x1408**](projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408.py) | 43.52 | [gdrive](https://drive.google.com/file/d/1f6E6Bm6enIJETSEbfXs57M0iOUU997kU/view?usp=drive_link) | [log](https://drive.google.com/file/d/1tch-YK4ROGDGNmDcN5FZnOAvsbHe-iSU/view?usp=drive_link) |
 
 ## Get Started
-step 1. Please prepare environment as that in [Docker](docker/Dockerfile).
-
-step 2. Prepare flashocc repo by.
-```shell script
-git clone https://github.com/YZichen/FlashOCC.git
-cd FlashOCC/projects
-pip install -v -e .
-```
-
-step 3. Prepare nuScenes dataset as introduced in [nuscenes_det.md](docs/en/datasets/nuscenes_det.md) and create the pkl for FlashOCC by running:
-```shell
-python tools/create_data_bevdet.py
-```
-step 4. For Occupancy Prediction task, download (only) the 'gts' from [CVPR2023-3D-Occupancy-Prediction](https://github.com/CVPR2023-3D-Occupancy-Prediction/CVPR2023-3D-Occupancy-Prediction) and arrange the folder as:
-```shell script
-└── nuscenes
-    ├── v1.0-trainval (existing)
-    ├── sweeps  (existing)
-    ├── samples (existing)
-    └── gts (new)
-```
-
-#### Train model
-```shell
-# single gpu
-python tools/train.py $config
-# multiple gpu
-./tools/dist_train.sh $config num_gpu
-```
-
-#### Test model
-```shell
-# single gpu
-python tools/test.py $config $checkpoint --eval mAP
-# multiple gpu
-./tools/dist_test.sh $config $checkpoint num_gpu --eval mAP
-```
-
+1. [Environment Setup](doc/install.md)
+2. [Model Training](doc/model_training.md)
+3. [Quick Test Via TensorRT In MMDeploy](doc/mmdeploy_test.md)
+4. [TensorRT Implement Writen In C++ With Cuda Acceleration](), will come soon
 
 
 ## Acknowledgement
