@@ -1,5 +1,6 @@
 import argparse
 import sys
+import os
 sys.path.insert(0, os.getcwd())
 
 import torch.onnx
@@ -414,6 +415,13 @@ def main():
                  metas[3].int().contiguous(), metas[4].int().contiguous()),
                 args.work_dir + model_prefix + '.onnx',
                 opset_version=11,
+                dynamic_axes={
+                    "ranks_depth" : {0: 'M'},
+                    "ranks_feat" : {0: 'M'},
+                    "ranks_bev" : {0: 'M'},
+                    "interval_starts" : {0: 'N'},
+                    "interval_lengths" : {0: 'N'},
+                },
                 input_names=[
                     'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
                     'interval_starts', 'interval_lengths'
