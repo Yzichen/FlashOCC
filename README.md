@@ -30,11 +30,15 @@ demonstrating its potential for deployment.
 
 ## Main Results
 ### Nuscenes Occupancy
-| Config                                                                                                    | mIOU  | Model                                                             | Log                                                                                          |
-|-----------------------------------------------------------------------------------------------------------|-------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| [**FlashOCC-R50**](projects/configs/flashocc/flashocc-r50.py)                                             | 32.08 | [gdrive](https://drive.google.com/file/d/1k9BzXB2nRyvXhqf7GQx3XNSej6Oq6I-B/view?usp=drive_link) | [log](https://drive.google.com/file/d/1NRm27wVZMSUylmZxsMedFSLr7729YEAV/view?usp=drive_link) |
-| [**FlashOCC-R50-4D-Stereo**](projects/configs/flashocc/flashocc-r50-4d-stereo.py)                         | 37.84 | [gdrive](https://drive.google.com/file/d/12WYaCdoZA8-A6_oh6vdLgOmqyEc3PNCe/view?usp=drive_link) | [log](https://drive.google.com/file/d/1eYvu9gUSQ7qk7w7lWPLrZMB0O2uKQUk3/view?usp=drive_link) |
-| [**FlashOCC-STBase-4D-Stereo-512x1408**](projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408.py) | 43.52 | [gdrive](https://drive.google.com/file/d/1f6E6Bm6enIJETSEbfXs57M0iOUU997kU/view?usp=drive_link) | [log](https://drive.google.com/file/d/1tch-YK4ROGDGNmDcN5FZnOAvsbHe-iSU/view?usp=drive_link) |
+| Config                                                                                                    | mIOU  | FPS  | Model                                                             | Log                                                                                          |
+|-----------------------------------------------------------------------------------------------------------|-------|-------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [**BEVDetOCC-R50**](projects/configs/bevdet_occ/bevdet-occ-r50.py)                                        | 31.60 | 92.1 | [gdrive]() | [log]() |
+| [**FO(BEVDetOCC)-R50**](projects/configs/flashocc/flashocc-r50.py)                                        | 32.08 | [152.7](doc/mmdeploy_test.md) | [gdrive](https://drive.google.com/file/d/1k9BzXB2nRyvXhqf7GQx3XNSej6Oq6I-B/view?usp=drive_link) | [log](https://drive.google.com/file/d/1NRm27wVZMSUylmZxsMedFSLr7729YEAV/view?usp=drive_link) |
+| [**BEVDetOCC-R50-4D-Stereo**](projects/configs/bevdet_occ/bevdet-occ-r50-4d-stereo.py)                    | 36.1 | - | [baidu](https://pan.baidu.com/s/1237QyV18zvRJ1pU3YzRItw?pwd=npe1) | [log](https://pan.baidu.com/s/1237QyV18zvRJ1pU3YzRItw?pwd=npe1) |
+| [**FO(BEVDetOCC)-R50-4D-Stereo**](projects/configs/flashocc/flashocc-r50-4d-stereo.py)                         | 37.84 | - | [gdrive](https://drive.google.com/file/d/12WYaCdoZA8-A6_oh6vdLgOmqyEc3PNCe/view?usp=drive_link) | [log](https://drive.google.com/file/d/1eYvu9gUSQ7qk7w7lWPLrZMB0O2uKQUk3/view?usp=drive_link) |
+| [**BEVDetOCC-STBase-4D-Stereo-512x1408**](projects/configs/bevdet_occ/bevdet-occ-stbase-4d-stereo-512x1408.py) | 42.0 | - | [baidu](https://pan.baidu.com/s/1237QyV18zvRJ1pU3YzRItw?pwd=npe1) | [log](https://pan.baidu.com/s/1237QyV18zvRJ1pU3YzRItw?pwd=npe1) |
+| [**FO(BEVDetOCC)-STBase-4D-Stereo-512x1408**](projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408.py) | 43.52 | - | [gdrive](https://drive.google.com/file/d/1f6E6Bm6enIJETSEbfXs57M0iOUU997kU/view?usp=drive_link) | [log](https://drive.google.com/file/d/1tch-YK4ROGDGNmDcN5FZnOAvsbHe-iSU/view?usp=drive_link) |
+FPS are tested via TensorRT on 3090 with FP16 precision.
 
 ## Get Started
 1. [Environment Setup](doc/install.md)
