@@ -46,7 +46,8 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
 1. [Environment Setup](doc/install.md)
 2. [Model Training](doc/model_training.md)
 3. [Quick Test Via TensorRT In MMDeploy](doc/mmdeploy_test.md)
-4. [TensorRT Implement Writen In C++ With Cuda Acceleration](), will come soon
+4. [Visualization](doc/visualization.md)
+5. [TensorRT Implement Writen In C++ With Cuda Acceleration](), will come soon
 
 
 ## Acknowledgement

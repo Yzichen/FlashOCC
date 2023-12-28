@@ -118,6 +118,10 @@ pip install nvidia-tensorrt==8.4.1.5
 pip install tensorrt
 #pip install h5py
 pip install spconv==2.3.6
+
+export PATH=Path_to_TensorRT-8.4.0.6/bin:$PATH
+export LD_LIBRARY_PATH=Path_to_TensorRT-8.4.0.6/lib:$LD_LIBRARY_PATH
+export LIBRARY_PATH=Path_to_TensorRT-8.4.0.6/lib:$LIBRARY_PATH
 ```
 
 ## The finally overall rangement

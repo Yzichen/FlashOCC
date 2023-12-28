@@ -13,11 +13,13 @@ class BEVDetOCC(BEVDet):
     def __init__(self,
                  occ_head=None,
                  upsample=False,
+                 is_centercrop=False,
                  **kwargs):
         super(BEVDetOCC, self).__init__(**kwargs)
         self.occ_head = build_head(occ_head)
         self.pts_bbox_head = None
         self.upsample = upsample
+        self.is_centercrop = is_centercrop
 
     def forward_train(self,
                       points=None,
@@ -66,6 +68,12 @@ class BEVDetOCC(BEVDet):
         mask_camera = kwargs['mask_camera']     # (B, Dx, Dy, Dz)
 
         occ_bev_feature = img_feats[0]
+        if self.is_centercrop == True:
+            _, _, w, h = occ_bev_feature.shape
+            if w == 256:
+                occ_bev_feature = occ_bev_feature[..., 28:228, 28:228].clone()
+            elif w == 128:
+                occ_bev_feature = occ_bev_feature[..., 14:114, 14:114].clone()
         if self.upsample:
             occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
                                             mode='bilinear', align_corners=True)

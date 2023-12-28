@@ -91,7 +91,8 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
 
             if show_dir is not None:
                 mmcv.mkdir_or_exist(show_dir)
-                scene_name = info['scene_name']
+                # scene_name = info['scene_name']
+                scene_name = [tem for tem in info['occ_path'].split('/') if 'scene-' in tem][0]
                 sample_token = info['token']
                 mmcv.mkdir_or_exist(os.path.join(show_dir, scene_name, sample_token))
                 save_path = os.path.join(show_dir, scene_name, sample_token, 'pred.npz')
