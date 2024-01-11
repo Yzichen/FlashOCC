@@ -1,4 +1,4 @@
-# trt inference
+# trt inference speed
 ```shell
 conda activate FlashOcc
 1. cmd for M0
@@ -35,3 +35,10 @@ python tools/analysis_tools/benchmark_trt.py $config $engine
 python tools/analysis_tools/benchmark_trt.py $config $engine --eval
 ```
 
+# Flops and params
+```shell
+python tools/analysis_tools/get_flops.py projects/configs/bevdet_occ/bevdet-occ-r50.py --modality image --shape 256 704
+python tools/analysis_tools/get_flops.py projects/configs/flashocc/flashocc-r50-M0.py --modality image --shape 256 704
+python tools/analysis_tools/get_flops.py projects/configs/flashocc/flashocc-r50.py --modality image --shape 256 704
+python tools/analysis_tools/get_flops.py projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408.py --modality image --shape 512 1408
+```

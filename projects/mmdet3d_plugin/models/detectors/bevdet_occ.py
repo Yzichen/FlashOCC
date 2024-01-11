@@ -154,10 +154,12 @@ class BEVDetOCC(BEVDet):
 class BEVStereo4DOCC(BEVStereo4D):
     def __init__(self,
                  occ_head=None,
+                 upsample=False,
                  **kwargs):
         super(BEVStereo4DOCC, self).__init__(**kwargs)
         self.occ_head = build_head(occ_head)
         self.pts_bbox_head = None
+        self.upsample = upsample
 
     def forward_train(self,
                       points=None,
