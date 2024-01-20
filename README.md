@@ -1,7 +1,6 @@
 # FlashOcc: Fast and Memory-Efficient Occupancy Prediction via Channel-to-Height Plugin
 
 ## News
-https://github.com/drilistbox/TRT_FlashOcc
 - **2024.01.20** [TensorRT Implement Writen In C++ With Cuda Acceleration](https://github.com/drilistbox/TRT_FlashOcc)
 - **2023.12.23** Release the quick testing code via TensorRT in MMDeploy.
 - **2023.11.28** Release the training code for FlashOcc.
