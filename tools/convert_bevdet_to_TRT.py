@@ -408,6 +408,8 @@ def main():
                 output_names=[f'output_{j}' for j in range(1)]
             else:
                 raise(" At least one of wdet3d and wocc is set as True!! ")
+
+            model.forward = model.forward_ori
             torch.onnx.export(
                 model,
                 (img.float().contiguous(), metas[1].int().contiguous(),
@@ -427,17 +429,50 @@ def main():
                     'interval_starts', 'interval_lengths'
                 ],
                 output_names=output_names)
+            print('output_names:', output_names)
+            print('====== onnx is saved at : ', args.work_dir + model_prefix + '.onnx')
+            # check onnx model
+            onnx_model = onnx.load(args.work_dir + model_prefix + '.onnx')
+            try:
+                onnx.checker.check_model(onnx_model)
+            except Exception:
+                print('ONNX Model Incorrect')
+            else:
+                print('ONNX Model Correct')
+
+            model.forward = model.forward_with_argmax
+            output_names = [f'cls_occ_label']
+            torch.onnx.export(
+                model,
+                (img.float().contiguous(), metas[1].int().contiguous(),
+                 metas[2].int().contiguous(), metas[0].int().contiguous(),
+                 metas[3].int().contiguous(), metas[4].int().contiguous()),
+                args.work_dir + model_prefix + '_with_argmax.onnx',
+                opset_version=11,
+                dynamic_axes={
+                    "ranks_depth" : {0: 'M'},
+                    "ranks_feat" : {0: 'M'},
+                    "ranks_bev" : {0: 'M'},
+                    "interval_starts" : {0: 'N'},
+                    "interval_lengths" : {0: 'N'},
+                },
+                input_names=[
+                    'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
+                    'interval_starts', 'interval_lengths'
+                ],
+                output_names=output_names)
+            print('output_names:', output_names)
+            print('====== onnx is saved at : ', args.work_dir + model_prefix + '_with_argmax.onnx')
+            # check onnx model
+            onnx_model = onnx.load(args.work_dir + model_prefix + '_with_argmax.onnx')
+            try:
+                onnx.checker.check_model(onnx_model)
+            except Exception:
+                print('ONNX Model Incorrect')
+            else:
+                print('ONNX Model Correct')
+
         break
-    print('output_names:', output_names)
-    print('====== onnx is saved at : ', args.work_dir + model_prefix + '.onnx')
-    # check onnx model
-    onnx_model = onnx.load(args.work_dir + model_prefix + '.onnx')
-    try:
-        onnx.checker.check_model(onnx_model)
-    except Exception:
-        print('ONNX Model Incorrect')
-    else:
-        print('ONNX Model Correct')
 
     # convert to tensorrt
     num_points = metas[0].shape[0]

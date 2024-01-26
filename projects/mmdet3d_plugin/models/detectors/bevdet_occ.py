@@ -309,7 +309,7 @@ class BEVDetOCCTRT(BEVDetOCC):
             outs_.append(outs_head)
         return outs_
 
-    def forward(
+    def forward_ori(
         self,
         img,
         ranks_depth,
@@ -352,6 +352,28 @@ class BEVDetOCCTRT(BEVDetOCC):
 
         outs = self.result_serialize(outs_det3d, outs_occ)
         return outs
+
+    def forward_with_argmax(
+        self,
+        img,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+    ):
+
+        outs = self.forward_ori(
+                img,
+                ranks_depth,
+                ranks_feat,
+                ranks_bev,
+                interval_starts,
+                interval_lengths,
+            )
+        pred_occ_label = outs[0].argmax(-1)
+        return pred_occ_label
+
 
     def get_bev_pool_input(self, input):
         input = self.prepare_inputs(input)
