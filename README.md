@@ -29,7 +29,6 @@ prediction baselines on the challenging Occ3D-nuScenes benchmarks and conduct ex
 the superiority of our plug-and-play paradigm over previous state-of-the-art methods in terms of precision, runtime efficiency, and memory costs, 
 demonstrating its potential for deployment.
 
-
 ## Main Results
 ### Nuscenes Occupancy
 #### 1. FlashOcc on BEVDetOCC
@@ -67,6 +66,13 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
 2. [Model Training](doc/model_training.md)
 3. [Quick Test Via TensorRT In MMDeploy](doc/mmdeploy_test.md)
 4. [Visualization](doc/visualization.md)
+
+<div align="center">
+  <img src="figs/visualization.png"/>
+</div><br/>
+
+A detail video can be found at [baidu](https://pan.baidu.com/s/1JzClkNSJQn4wxX-DZTxCVw?pwd=iwz3)
+
 5. [TensorRT Implement Writen In C++ With Cuda Acceleration](https://github.com/drilistbox/TRT_FlashOcc)
 
 
