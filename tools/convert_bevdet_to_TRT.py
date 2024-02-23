@@ -313,8 +313,8 @@ def main():
         'please install mmdeploy from ' \
         'https://github.com/HuangJunJie2017/mmdeploy.git'
 
-    if args.int8:
-        assert args.fp16
+    # if args.int8:
+    #     assert args.fp16
     model_prefix = args.prefix
     if args.int8:
         model_prefix = model_prefix + '_int8'

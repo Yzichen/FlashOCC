@@ -65,6 +65,15 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
 1. [Environment Setup](doc/install.md)
 2. [Model Training](doc/model_training.md)
 3. [Quick Test Via TensorRT In MMDeploy](doc/mmdeploy_test.md)
+
+| Backend  | mIOU  | FPS(Hz) |
+|----------|-------|---------|
+| PyTorch-FP32                                    | 31.95 |    -  |
+| TRT-FP32                                        | 30.78 |  96.2 |
+| TRT-FP16                                        | 30.78 | 197.6 |
+| TRT-FP16+INT8                                   | 29.60 | 383.7 |
+| TRT-INT8                                        | 29.59 | 397.0 |
+
 4. [Visualization](doc/visualization.md)
 
 <div align="center">
