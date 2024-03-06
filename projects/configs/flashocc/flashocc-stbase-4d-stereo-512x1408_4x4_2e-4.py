@@ -210,7 +210,7 @@ test_data_config = dict(
     ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl')
 
 data = dict(
-    samples_per_gpu=1,  # with 32 GPU
+    samples_per_gpu=4,  # with 32 GPU
     workers_per_gpu=4,
     train=dict(
         data_root=data_root,
@@ -256,7 +256,7 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 load_from="ckpts/bevdet-stbase-4d-stereo-512x1408-cbgs.pth"
 # fp16 = dict(loss_scale='dynamic')
 
-
+# bash tools/dist_train.sh projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408.py 4
 # ===> per class IoU of 6019 samples:
 # ===> others - IoU = 13.42
 # ===> barrier - IoU = 51.07
@@ -276,3 +276,27 @@ load_from="ckpts/bevdet-stbase-4d-stereo-512x1408-cbgs.pth"
 # ===> manmade - IoU = 50.84
 # ===> vegetation - IoU = 44.67
 # ===> mIoU of 6019 samples: 43.52
+
+# ===> per class IoU of 6019 samples:
+# ===> others - IoU = 13.31
+# ===> barrier - IoU = 51.62
+# ===> bicycle - IoU = 28.07
+# ===> bus - IoU = 50.91
+# ===> car - IoU = 55.69
+# ===> construction_vehicle - IoU = 27.46
+# ===> motorcycle - IoU = 31.05
+# ===> pedestrian - IoU = 29.98
+# ===> traffic_cone - IoU = 29.2
+# ===> trailer - IoU = 38.86
+# ===> truck - IoU = 43.68
+# ===> driveable_surface - IoU = 83.87
+# ===> other_flat - IoU = 45.63
+# ===> sidewalk - IoU = 56.33
+# ===> terrain - IoU = 59.01
+# ===> manmade - IoU = 50.63
+# ===> vegetation - IoU = 44.56
+# ===> mIoU of 6019 samples: 43.52
+# {'mIoU': array([0.13311691, 0.51617081, 0.28070517, 0.50911942, 0.55694228,
+#        0.27461342, 0.31050779, 0.29979125, 0.29204287, 0.38862984,
+#        0.43680049, 0.83872518, 0.45630227, 0.56327839, 0.59008883,
+#        0.50627122, 0.44564523, 0.90959399])}
