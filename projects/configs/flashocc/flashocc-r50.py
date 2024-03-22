@@ -80,12 +80,12 @@ model = dict(
     occ_head=dict(
         type='BEVOCCHead2D',
         in_dim=256,
-        out_dim=256,
+        out_dim=256,    # out_dim=128 for M0!!!
         Dz=16,
         use_mask=True,
         num_classes=18,
         use_predicter=True,
-        class_wise=False,
+        class_balance=False,
         loss_occ=dict(
             type='CrossEntropyLoss',
             use_sigmoid=False,
@@ -225,7 +225,7 @@ evaluation = dict(interval=1, start=20, pipeline=test_pipeline)
 checkpoint_config = dict(interval=1, max_keep_ckpts=5)
 
 
-# with det pretrain; use_mask=True; out_dim=256,
+# with det pretrain; use_mask=True;
 # ===> per class IoU of 6019 samples:
 # ===> others - IoU = 6.74
 # ===> barrier - IoU = 37.65
@@ -245,3 +245,24 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=5)
 # ===> manmade - IoU = 37.89
 # ===> vegetation - IoU = 32.24
 # ===> mIoU of 6019 samples: 32.08
+
+# with det pretrain; use_mask=False; class_balance=True
+# ===> per class IoU of 6019 samples:
+# ===> others - IoU = 4.49
+# ===> barrier - IoU = 29.59
+# ===> bicycle - IoU = 7.38
+# ===> bus - IoU = 30.32
+# ===> car - IoU = 32.22
+# ===> construction_vehicle - IoU = 13.04
+# ===> motorcycle - IoU = 11.91
+# ===> pedestrian - IoU = 8.61
+# ===> traffic_cone - IoU = 8.11
+# ===> trailer - IoU = 7.66
+# ===> truck - IoU = 20.84
+# ===> driveable_surface - IoU = 48.59
+# ===> other_flat - IoU = 26.62
+# ===> sidewalk - IoU = 26.08
+# ===> terrain - IoU = 20.86
+# ===> manmade - IoU = 7.62
+# ===> vegetation - IoU = 7.14
+# ===> mIoU of 6019 samples: 18.3
