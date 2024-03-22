@@ -392,13 +392,49 @@ def main():
 
     for i, data in enumerate(data_loader):
         inputs = [t.cuda() for t in data['img_inputs'][0]]
-        if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT']:
-            metas = model.get_bev_pool_input(inputs, img_metas=data['img_metas'])
-        else:
-            metas = model.get_bev_pool_input(inputs)
         img = inputs[0].squeeze(0)
         if img.shape[0] > 6:
             img = img[:6]
+        if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT']:
+            metas = model.get_bev_pool_input(inputs, img_metas=data['img_metas'])
+        else:
+            if model.__class__.__name__ in ['BEVDetOCCTRT']:
+                metas = model.get_bev_pool_input(inputs)
+            elif model.__class__.__name__ in ['BEVDepthOCCTRT']:
+                metas, mlp_input = model.get_bev_pool_input(inputs)
+
+        if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT', 'BEVDetOCCTRT']:
+            onnx_input = (img.float().contiguous(), metas[1].int().contiguous(),
+                metas[2].int().contiguous(), metas[0].int().contiguous(),
+                metas[3].int().contiguous(), metas[4].int().contiguous())
+            dynamic_axes={
+                    "ranks_depth" : {0: 'M'},
+                    "ranks_feat" : {0: 'M'},
+                    "ranks_bev" : {0: 'M'},
+                    "interval_starts" : {0: 'N'},
+                    "interval_lengths" : {0: 'N'},
+                }
+            input_names=[
+                    'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
+                    'interval_starts', 'interval_lengths'
+                ]
+        elif model.__class__.__name__ in ['BEVDepthOCCTRT']:
+            onnx_input = (img.float().contiguous(), metas[1].int().contiguous(),
+                metas[2].int().contiguous(), metas[0].int().contiguous(),
+                metas[3].int().contiguous(), metas[4].int().contiguous(), mlp_input)
+            dynamic_axes={
+                    "ranks_depth" : {0: 'M'},
+                    "ranks_feat" : {0: 'M'},
+                    "ranks_bev" : {0: 'M'},
+                    "interval_starts" : {0: 'N'},
+                    "interval_lengths" : {0: 'N'},
+                    # "mlp_input" : {0: 'K'},
+                }
+            input_names=[
+                    'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
+                    'interval_starts', 'interval_lengths', 'mlp_input',
+                ]
+
         with torch.no_grad():
             if (model.wdet3d == True) and (model.wocc == False) :
                 output_names=[f'output_{j}' for j in range(6 * len(model.pts_bbox_head.task_heads))]
@@ -412,22 +448,11 @@ def main():
             model.forward = model.forward_ori
             torch.onnx.export(
                 model,
-                (img.float().contiguous(), metas[1].int().contiguous(),
-                 metas[2].int().contiguous(), metas[0].int().contiguous(),
-                 metas[3].int().contiguous(), metas[4].int().contiguous()),
+                onnx_input,
                 args.work_dir + model_prefix + '.onnx',
                 opset_version=11,
-                dynamic_axes={
-                    "ranks_depth" : {0: 'M'},
-                    "ranks_feat" : {0: 'M'},
-                    "ranks_bev" : {0: 'M'},
-                    "interval_starts" : {0: 'N'},
-                    "interval_lengths" : {0: 'N'},
-                },
-                input_names=[
-                    'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
-                    'interval_starts', 'interval_lengths'
-                ],
+                dynamic_axes=dynamic_axes,
+                input_names=input_names,
                 output_names=output_names)
             print('output_names:', output_names)
             print('====== onnx is saved at : ', args.work_dir + model_prefix + '.onnx')
@@ -444,22 +469,11 @@ def main():
             output_names = [f'cls_occ_label']
             torch.onnx.export(
                 model,
-                (img.float().contiguous(), metas[1].int().contiguous(),
-                 metas[2].int().contiguous(), metas[0].int().contiguous(),
-                 metas[3].int().contiguous(), metas[4].int().contiguous()),
+                onnx_input,
                 args.work_dir + model_prefix + '_with_argmax.onnx',
                 opset_version=11,
-                dynamic_axes={
-                    "ranks_depth" : {0: 'M'},
-                    "ranks_feat" : {0: 'M'},
-                    "ranks_bev" : {0: 'M'},
-                    "interval_starts" : {0: 'N'},
-                    "interval_lengths" : {0: 'N'},
-                },
-                input_names=[
-                    'img', 'ranks_depth', 'ranks_feat', 'ranks_bev',
-                    'interval_starts', 'interval_lengths'
-                ],
+                dynamic_axes=dynamic_axes,
+                input_names=input_names,
                 output_names=output_names)
             print('output_names:', output_names)
             print('====== onnx is saved at : ', args.work_dir + model_prefix + '_with_argmax.onnx')

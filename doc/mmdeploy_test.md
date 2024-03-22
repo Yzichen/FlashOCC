@@ -116,6 +116,20 @@ python tools/analysis_tools/benchmark_trt.py $config $engine --eval
 
 ```
 
+
+3. cmd for flashoccv2
+exp_name=flashoccv2-r50-depth
+fold_name=flashoccv2
+config=projects/configs/${fold_name}/${exp_name}-trt.py
+checkpoint=work_dirs/${exp_name}/epoch_24_ema.pth
+work_dir=work_dirs/${exp_name}/onnx_trt/
+
+# fp16 test
+engine=work_dirs/${exp_name}/onnx_trt/bevdet_fp16_fuse.engine
+python tools/convert_bevdet_to_TRT.py $config $checkpoint $work_dir --fuse-conv-bn --fp16
+python tools/analysis_tools/benchmark_trt.py $config $engine
+python tools/analysis_tools/benchmark_trt.py $config $engine --eval
+
 # Flops and params
 ```shell
 python tools/analysis_tools/get_flops.py projects/configs/bevdet_occ/bevdet-occ-r50.py --modality image --shape 256 704

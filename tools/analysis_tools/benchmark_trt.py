@@ -194,13 +194,25 @@ def main():
             if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT']:
                 metas_ = model.get_bev_pool_input(inputs, img_metas=data['img_metas'])
             else:
-                metas_ = model.get_bev_pool_input(inputs)
-            metas = dict(
-                ranks_bev=metas_[0].int().contiguous(),
-                ranks_depth=metas_[1].int().contiguous(),
-                ranks_feat=metas_[2].int().contiguous(),
-                interval_starts=metas_[3].int().contiguous(),
-                interval_lengths=metas_[4].int().contiguous())
+                if model.__class__.__name__ in ['BEVDetOCCTRT']:
+                    metas_ = model.get_bev_pool_input(inputs)
+                elif model.__class__.__name__ in ['BEVDepthOCCTRT']:
+                    metas_, mlp_input = model.get_bev_pool_input(inputs)
+            if model.__class__.__name__ in ['FBOCCTRT', 'FBOCC2DTRT', 'BEVDetOCCTRT']:
+                metas = dict(
+                    ranks_bev=metas_[0].int().contiguous(),
+                    ranks_depth=metas_[1].int().contiguous(),
+                    ranks_feat=metas_[2].int().contiguous(),
+                    interval_starts=metas_[3].int().contiguous(),
+                    interval_lengths=metas_[4].int().contiguous())
+            elif model.__class__.__name__ in ['BEVDepthOCCTRT']:
+                metas = dict(
+                    ranks_bev=metas_[0].int().contiguous(),
+                    ranks_depth=metas_[1].int().contiguous(),
+                    ranks_feat=metas_[2].int().contiguous(),
+                    interval_starts=metas_[3].int().contiguous(),
+                    interval_lengths=metas_[4].int().contiguous(),
+                    mlp_input=mlp_input)
             init_ = False
         img = data['img_inputs'][0][0].cuda().squeeze(0).contiguous()
         if img.shape[0] > 6:
