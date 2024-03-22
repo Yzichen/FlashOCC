@@ -100,8 +100,8 @@ class MEGVIIEMAHook(Hook):
         runner.ema_model.update(runner, runner.model.module)
 
     def after_train_epoch(self, runner):
-        if self.is_last_epoch(runner):   # 只保存最后一个epoch的ema权重.
-            self.save_checkpoint(runner)
+        # if self.is_last_epoch(runner):   # 只保存最后一个epoch的ema权重.
+        self.save_checkpoint(runner)
 
     @master_only
     def save_checkpoint(self, runner):

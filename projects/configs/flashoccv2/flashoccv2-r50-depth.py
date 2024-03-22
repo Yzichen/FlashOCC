@@ -17,7 +17,7 @@ data_config = {
     ],
     'Ncams':
     6,
-    'input_size': (512, 1408),
+    'input_size': (256, 704),
     'src_size': (900, 1600),
 
     # Augmentation
@@ -29,8 +29,8 @@ data_config = {
 }
 
 grid_config = {
-    'x': [-51.2, 51.2, 0.8],
-    'y': [-51.2, 51.2, 0.8],
+    'x': [-40, 40, 0.4],
+    'y': [-40, 40, 0.4],
     'z': [-1, 5.4, 6.4],
     'depth': [1.0, 45.0, 0.5],
 }
@@ -40,21 +40,18 @@ voxel_size = [0.1, 0.1, 0.2]
 numC_Trans = 64
 
 model = dict(
-    type='BEVDetOCC',
-    is_centercrop=True,
-    upsample=True,
+    type='BEVDepthOCC',     # single-frame
     img_backbone=dict(
         type='ResNet',
-        depth=101,
+        depth=50,
         num_stages=4,
         out_indices=(2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN2d', requires_grad=False),
-        norm_eval=True,
-        style='caffe',
-        with_cp=True,  # using checkpoint to save GPU memory
-        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
-        stage_with_dcn=(False, False, True, True)
+        frozen_stages=-1,
+        norm_cfg=dict(type='BN', requires_grad=True),
+        norm_eval=False,
+        with_cp=True,
+        style='pytorch',
+        pretrained='torchvision://resnet50',
     ),
     img_neck=dict(
         type='CustomFPN',
@@ -64,13 +61,13 @@ model = dict(
         start_level=0,
         out_ids=[0]),
     img_view_transformer=dict(
-        type='LSSViewTransformer',
+        type='LSSViewTransformerBEVDepth',
         grid_config=grid_config,
         input_size=data_config['input_size'],
         in_channels=256,
         out_channels=numC_Trans,
-        sid=False,
-        collapse_z=True,
+        loss_depth_weight=1,
+        depthnet_cfg=dict(use_dcn=False, aspp_mid_channels=96),
         downsample=16),
     img_bev_encoder_backbone=dict(
         type='CustomResNet',
@@ -81,18 +78,17 @@ model = dict(
         in_channels=numC_Trans * 8 + numC_Trans * 2,
         out_channels=256),
     occ_head=dict(
-        type='BEVOCCHead2D',
+        type='BEVOCCHead2D_V2',
         in_dim=256,
-        out_dim=128,
+        out_dim=256,
         Dz=16,
-        use_mask=True,
+        use_mask=False,
         num_classes=18,
         use_predicter=True,
-        class_wise=False,
+        class_balance=True,
         loss_occ=dict(
-            type='CrossEntropyLoss',
-            use_sigmoid=False,
-            ignore_index=255,
+            type='CustomFocalLoss',
+            use_sigmoid=True,
             loss_weight=1.0
         ),
     )
@@ -222,7 +218,29 @@ custom_hooks = [
     ),
 ]
 
-load_from = 'ckpts/r101_dcn_fcos3d_pretrain.pth'
+load_from = "ckpts/bevdet-r50-4d-depth-cbgs.pth"
 # fp16 = dict(loss_scale='dynamic')
 evaluation = dict(interval=1, start=20, pipeline=test_pipeline)
 checkpoint_config = dict(interval=1, max_keep_ckpts=5)
+
+
+# use_mask = False
+# ===> per class IoU of 6019 samples:
+# ===> others - IoU = 10.48
+# ===> barrier - IoU = 40.42
+# ===> bicycle - IoU = 22.77
+# ===> bus - IoU = 39.85
+# ===> car - IoU = 41.15
+# ===> construction_vehicle - IoU = 19.77
+# ===> motorcycle - IoU = 23.71
+# ===> pedestrian - IoU = 22.76
+# ===> traffic_cone - IoU = 24.12
+# ===> trailer - IoU = 25.06
+# ===> truck - IoU = 29.7
+# ===> driveable_surface - IoU = 58.37
+# ===> other_flat - IoU = 32.16
+# ===> sidewalk - IoU = 34.08
+# ===> terrain - IoU = 31.14
+# ===> manmade - IoU = 17.83
+# ===> vegetation - IoU = 18.27
+# ===> mIoU of 6019 samples: 28.92

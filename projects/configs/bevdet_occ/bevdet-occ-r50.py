@@ -87,7 +87,7 @@ model = dict(
         use_mask=True,
         num_classes=18,
         use_predicter=True,
-        class_wise=False,
+        class_balance=False,
         loss_occ=dict(
             type='CrossEntropyLoss',
             use_sigmoid=False,
@@ -220,7 +220,7 @@ custom_hooks = [
     ),
 ]
 
-load_from = "ckpts/bevdet-r50.pth"
+load_from = "ckpts/bevdet-r50-cbgs.pth"
 # fp16 = dict(loss_scale='dynamic')
 evaluation = dict(interval=1, start=20, pipeline=test_pipeline)
 checkpoint_config = dict(interval=1, max_keep_ckpts=5)
@@ -246,3 +246,25 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=5)
 # ===> manmade - IoU = 36.82
 # ===> vegetation - IoU = 32.09
 # ===> mIoU of 6019 samples: 31.64
+
+
+# with det pretrain; use_mask=False; class_balance=True
+# ===> per class IoU of 6019 samples:
+# ===> others - IoU = 4.36
+# ===> barrier - IoU = 28.87
+# ===> bicycle - IoU = 2.86
+# ===> bus - IoU = 29.27
+# ===> car - IoU = 32.45
+# ===> construction_vehicle - IoU = 11.05
+# ===> motorcycle - IoU = 12.82
+# ===> pedestrian - IoU = 10.11
+# ===> traffic_cone - IoU = 9.47
+# ===> trailer - IoU = 7.93
+# ===> truck - IoU = 21.58
+# ===> driveable_surface - IoU = 49.85
+# ===> other_flat - IoU = 25.5
+# ===> sidewalk - IoU = 26.78
+# ===> terrain - IoU = 21.14
+# ===> manmade - IoU = 5.76
+# ===> vegetation - IoU = 7.09
+# ===> mIoU of 6019 samples: 18.05
