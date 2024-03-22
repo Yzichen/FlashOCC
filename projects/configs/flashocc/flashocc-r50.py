@@ -80,7 +80,7 @@ model = dict(
     occ_head=dict(
         type='BEVOCCHead2D',
         in_dim=256,
-        out_dim=256,
+        out_dim=256,    # out_dim=128 for M0!!!
         Dz=16,
         use_mask=True,
         num_classes=18,
