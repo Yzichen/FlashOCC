@@ -55,7 +55,10 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
 |                                      Config                                      | Backbone | Input <br/>Size  | mIoU  | FPS<br/>(Hz) |            Flops<br/>(G)            |           Params<br/>(M)           |                                              Model                                              |                                             Log                                              |
 |:--------------------------------------------------------------------------------:|:--------:|:-----------:|:-----:|:-------:|:------------------------------:|:-----------------------------:|:-----------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------------------:|
 |          [**M1: FlashOCC (1f)**](projects/configs/flashocc/flashocc-r50.py)          |   R50    |   256x704   | 15.41 |  [152.7](doc/mmdeploy_test.md)  | [248.57](doc/mmdeploy_test.md) | [44.74](doc/mmdeploy_test.md) |                                           [gdrive](https://drive.google.com/file/d/14XsvjSwp-vLpy_eBZzvKo3MAh-YWRHcu/view?usp=drive_link)                                            |                                           [log](https://drive.google.com/file/d/1cTDoauEmjhK9fReLDcA2zPZx4a6X3U1-/view?usp=drive_link)                                            |
+| [**FlashOCCV2-Depth-tiny (1f)**](projects/configs/flashoccv2/flashoccv2-r50-depth-tiny.py) |   R50    |   256x704   | 28.83 |    -    | [175.00](doc/mmdeploy_test.md) | [45.32](doc/mmdeploy_test.md) | [gdrive](https://drive.google.com/file/d/1dqC1UDuVhzs3XWb292j8zWwfc-7pL8oT/view?usp=sharing) | [log](https://drive.google.com/file/d/17z72iyAmR9fE7-O-R_o3Uy07jg83uxCn/view?usp=sharing) |
 | [**FlashOCCV2-Depth (1f)**](projects/configs/flashoccv2/flashoccv2-r50-depth.py) |   R50    |   256x704   | 28.92 |    -    | [269.47](doc/mmdeploy_test.md) | [50.12](doc/mmdeploy_test.md) | [gdrive](https://drive.google.com/file/d/1ixt6tvlj2WGNDX0JCQR5OStS7oYh-P6N/view?usp=drive_link) | [log](https://drive.google.com/file/d/16dxKpS04P-B-lzQjFdaJL9QTjIkXG-Au/view?usp=drive_link) |
+
+**The FPS will be updated if we have a spare 3090.**
 
 ## Get Started
 1. [Environment Setup](doc/install.md)
@@ -70,7 +73,7 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
 | TRT-FP16+INT8(PTQ)                              | 29.60 | 383.7 |
 | TRT-INT8(PTQ)                                   | 29.59 | 397.0 |
 
-4. [Visualization](doc/visualization.md)
+4. [Visualization( M3:FlashOCC-4D-Stereo (2f) )](doc/visualization.md)
 
 <div align="center">
   <img src="figs/visualization.png"/>

@@ -139,4 +139,5 @@ python tools/analysis_tools/get_flops.py projects/configs/flashocc/flashocc-r50-
 python tools/analysis_tools/get_flops.py projects/configs/flashocc/flashocc-r50.py --modality image --shape 256 704
 python tools/analysis_tools/get_flops.py projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408.py --modality image --shape 512 1408
 python tools/analysis_tools/get_flops.py projects/configs/flashoccv2/flashoccv2-r50-depth.py --modality image --shape 256 704
+python tools/analysis_tools/get_flops.py projects/configs/flashoccv2/flashoccv2-r50-depth-tiny.py --modality image --shape 256 704
 ```
