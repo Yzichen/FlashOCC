@@ -12,7 +12,7 @@ from mmdet3d.datasets import build_dataloader, build_dataset
 from mmdet3d.models import build_detector
 from tools.misc.fuse_conv_bn import fuse_module
 
-sys.path.insert(0, '/home/zichen/Documents/Project/BEV/Custom/BEVDet')
+sys.path.insert(0, '/home/zichen/Documents/Project/BEV/Custom/FlashOCC')
 print(sys.path)
 
 def parse_args():

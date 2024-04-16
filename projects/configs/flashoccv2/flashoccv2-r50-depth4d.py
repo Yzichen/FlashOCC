@@ -32,15 +32,15 @@ grid_config = {
     'x': [-40, 40, 0.4],
     'y': [-40, 40, 0.4],
     'z': [-1, 5.4, 6.4],
-    'depth': [1.0, 45.0, 1.0],
+    'depth': [1.0, 45.0, 0.5],
 }
 
 voxel_size = [0.1, 0.1, 0.2]
-
-numC_Trans = 64
+numC_Trans = 80
+multi_adj_frame_id_cfg = (1, 1+1, 1)
 
 model = dict(
-    type='BEVDepthOCC',     # single-frame
+    type='BEVDepth4DOCC',
     img_backbone=dict(
         type='ResNet',
         depth=50,
@@ -56,7 +56,7 @@ model = dict(
     img_neck=dict(
         type='CustomFPN',
         in_channels=[1024, 2048],
-        out_channels=256,
+        out_channels=512,
         num_outs=1,
         start_level=0,
         out_ids=[0]),
@@ -64,23 +64,30 @@ model = dict(
         type='LSSViewTransformerBEVDepth',
         grid_config=grid_config,
         input_size=data_config['input_size'],
-        in_channels=256,
+        in_channels=512,
         out_channels=numC_Trans,
         loss_depth_weight=1,
         depthnet_cfg=dict(use_dcn=False, aspp_mid_channels=96),
         downsample=16),
-    img_bev_encoder_backbone=dict(
+    pre_process=dict(
         type='CustomResNet',
         numC_input=numC_Trans,
+        num_layer=[1, ],
+        num_channels=[numC_Trans, ],
+        stride=[1, ],
+        backbone_output_ids=[0, ]),
+    img_bev_encoder_backbone=dict(
+        type='CustomResNet',
+        numC_input=numC_Trans * (len(range(*multi_adj_frame_id_cfg))+1),
         num_channels=[numC_Trans * 2, numC_Trans * 4, numC_Trans * 8]),
     img_bev_encoder_neck=dict(
         type='FPN_LSS',
         in_channels=numC_Trans * 8 + numC_Trans * 2,
-        out_channels=128),
+        out_channels=256),
     occ_head=dict(
         type='BEVOCCHead2D_V2',
-        in_dim=128,
-        out_dim=128,
+        in_dim=256,
+        out_dim=256,
         Dz=16,
         use_mask=False,
         num_classes=18,
@@ -111,7 +118,7 @@ train_pipeline = [
         type='PrepareImageInputs',
         is_train=True,
         data_config=data_config,
-        sequential=False),
+        sequential=True),
     dict(
         type='LoadAnnotationsBEVDepth',
         bda_aug_conf=bda_aug_conf,
@@ -132,7 +139,7 @@ train_pipeline = [
 ]
 
 test_pipeline = [
-    dict(type='PrepareImageInputs', data_config=data_config, sequential=False),
+    dict(type='PrepareImageInputs', data_config=data_config, sequential=True),
     dict(
         type='LoadAnnotationsBEVDepth',
         bda_aug_conf=bda_aug_conf,
@@ -173,7 +180,8 @@ share_data_config = dict(
     modality=input_modality,
     stereo=False,
     filter_empty_gt=False,
-    img_info_prototype='bevdet',
+    img_info_prototype='bevdet4d',
+    multi_adj_frame_id_cfg=multi_adj_frame_id_cfg,
 )
 
 test_data_config = dict(
@@ -223,57 +231,50 @@ load_from = "ckpts/bevdet-r50-4d-depth-cbgs.pth"
 evaluation = dict(interval=1, start=20, pipeline=test_pipeline)
 checkpoint_config = dict(interval=1, max_keep_ckpts=5)
 
-
 # use_mask = False
-# ===> per class IoU of 6019 samples:
-# ===> others - IoU = 10.69
-# ===> barrier - IoU = 39.67
-# ===> bicycle - IoU = 22.01
-# ===> bus - IoU = 39.99
-# ===> car - IoU = 40.46
-# ===> construction_vehicle - IoU = 20.44
-# ===> motorcycle - IoU = 24.52
-# ===> pedestrian - IoU = 22.5
-# ===> traffic_cone - IoU = 23.72
-# ===> trailer - IoU = 25.93
-# ===> truck - IoU = 29.75
-# ===> driveable_surface - IoU = 58.29
-# ===> other_flat - IoU = 31.46
-# ===> sidewalk - IoU = 33.92
-# ===> terrain - IoU = 31.25
-# ===> manmade - IoU = 17.46
-# ===> vegetation - IoU = 17.97
-# ===> mIoU of 6019 samples: 28.83
-# {'mIoU': array([0.1068576 , 0.3967071 , 0.220114  , 0.3998965 , 0.40462457,
-#        0.20442682, 0.24516316, 0.22497209, 0.23719173, 0.25925541,
-#        0.29754347, 0.58293305, 0.31458314, 0.33921965, 0.31254221,
-#        0.17456574, 0.17970859, 0.8315865 ])}
+# ===> others - IoU = 9.99
+# ===> barrier - IoU = 41.3
+# ===> bicycle - IoU = 22.84
+# ===> bus - IoU = 41.17
+# ===> car - IoU = 41.89
+# ===> construction_vehicle - IoU = 20.84
+# ===> motorcycle - IoU = 25.25
+# ===> pedestrian - IoU = 23.98
+# ===> traffic_cone - IoU = 24.36
+# ===> trailer - IoU = 26.39
+# ===> truck - IoU = 30.41
+# ===> driveable_surface - IoU = 58.26
+# ===> other_flat - IoU = 31.86
+# ===> sidewalk - IoU = 34.47
+# ===> terrain - IoU = 31.96
+# ===> manmade - IoU = 18.87
+# ===> vegetation - IoU = 18.95
+# ===> mIoU of 6019 samples: 29.57
+# {'mIoU': array([0.1  , 0.413, 0.228, 0.412, 0.419, 0.208, 0.253, 0.24 , 0.244,
+#        0.264, 0.304, 0.583, 0.319, 0.345, 0.32 , 0.189, 0.189, 0.833])}
 
 
-# Starting Evaluation...
-# 6019it [10:23,  9.65it/s]
 # +----------------------+----------+----------+----------+
 # |     Class Names      | RayIoU@1 | RayIoU@2 | RayIoU@4 |
 # +----------------------+----------+----------+----------+
-# |        others        |  0.094   |  0.107   |  0.111   |
-# |       barrier        |  0.367   |  0.421   |  0.443   |
-# |       bicycle        |  0.209   |  0.251   |  0.261   |
-# |         bus          |  0.498   |  0.601   |  0.665   |
-# |         car          |  0.472   |  0.550   |  0.581   |
-# | construction_vehicle |  0.175   |  0.251   |  0.287   |
-# |      motorcycle      |  0.205   |  0.292   |  0.315   |
-# |      pedestrian      |  0.289   |  0.339   |  0.354   |
-# |     traffic_cone     |  0.276   |  0.302   |  0.314   |
-# |       trailer        |  0.203   |  0.289   |  0.380   |
-# |        truck         |  0.396   |  0.493   |  0.546   |
-# |  driveable_surface   |  0.528   |  0.611   |  0.702   |
-# |      other_flat      |  0.280   |  0.315   |  0.346   |
-# |       sidewalk       |  0.233   |  0.279   |  0.328   |
-# |       terrain        |  0.218   |  0.286   |  0.353   |
-# |       manmade        |  0.268   |  0.347   |  0.398   |
-# |      vegetation      |  0.174   |  0.272   |  0.358   |
+# |        others        |  0.095   |  0.106   |  0.109   |
+# |       barrier        |  0.392   |  0.444   |  0.466   |
+# |       bicycle        |  0.236   |  0.279   |  0.287   |
+# |         bus          |  0.513   |  0.616   |  0.675   |
+# |         car          |  0.492   |  0.567   |  0.596   |
+# | construction_vehicle |  0.170   |  0.256   |  0.296   |
+# |      motorcycle      |  0.216   |  0.304   |  0.330   |
+# |      pedestrian      |  0.315   |  0.363   |  0.378   |
+# |     traffic_cone     |  0.280   |  0.315   |  0.323   |
+# |       trailer        |  0.210   |  0.294   |  0.397   |
+# |        truck         |  0.419   |  0.517   |  0.565   |
+# |  driveable_surface   |  0.540   |  0.621   |  0.708   |
+# |      other_flat      |  0.284   |  0.320   |  0.354   |
+# |       sidewalk       |  0.242   |  0.289   |  0.337   |
+# |       terrain        |  0.233   |  0.302   |  0.367   |
+# |       manmade        |  0.291   |  0.370   |  0.422   |
+# |      vegetation      |  0.190   |  0.290   |  0.376   |
 # +----------------------+----------+----------+----------+
-# |         MEAN         |  0.287   |  0.353   |  0.397   |
+# |         MEAN         |  0.301   |  0.368   |  0.411   |
 # +----------------------+----------+----------+----------+
-# {'RayIoU': 0.34574739050176573, 'RayIoU@1': 0.2873820616941079, 'RayIoU@2': 0.3533573712072785,
-# 'RayIoU@4': 0.39650273860391083}
+# {'RayIoU': 0.3599406945036808, 'RayIoU@1': 0.30094679699387594, 'RayIoU@2': 0.36785252629427645, 'RayIoU@4': 0.4110227602228899}

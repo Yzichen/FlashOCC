@@ -37,7 +37,7 @@ grid_config = {
 
 voxel_size = [0.1, 0.1, 0.2]
 
-numC_Trans = 64
+numC_Trans = 80
 
 model = dict(
     type='BEVDepthOCC',     # single-frame
@@ -226,21 +226,47 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=5)
 
 # use_mask = False
 # ===> per class IoU of 6019 samples:
-# ===> others - IoU = 10.48
-# ===> barrier - IoU = 40.42
-# ===> bicycle - IoU = 22.77
-# ===> bus - IoU = 39.85
-# ===> car - IoU = 41.15
-# ===> construction_vehicle - IoU = 19.77
-# ===> motorcycle - IoU = 23.71
-# ===> pedestrian - IoU = 22.76
-# ===> traffic_cone - IoU = 24.12
-# ===> trailer - IoU = 25.06
-# ===> truck - IoU = 29.7
-# ===> driveable_surface - IoU = 58.37
-# ===> other_flat - IoU = 32.16
+# ===> others - IoU = 10.35
+# ===> barrier - IoU = 39.8
+# ===> bicycle - IoU = 21.72
+# ===> bus - IoU = 39.62
+# ===> car - IoU = 40.56
+# ===> construction_vehicle - IoU = 21.11
+# ===> motorcycle - IoU = 24.66
+# ===> pedestrian - IoU = 22.87
+# ===> traffic_cone - IoU = 24.22
+# ===> trailer - IoU = 25.98
+# ===> truck - IoU = 29.65
+# ===> driveable_surface - IoU = 58.07
+# ===> other_flat - IoU = 31.47
 # ===> sidewalk - IoU = 34.08
-# ===> terrain - IoU = 31.14
-# ===> manmade - IoU = 17.83
-# ===> vegetation - IoU = 18.27
-# ===> mIoU of 6019 samples: 28.92
+# ===> terrain - IoU = 31.23
+# ===> manmade - IoU = 18.01
+# ===> vegetation - IoU = 18.1
+# ===> mIoU of 6019 samples: 28.91
+
+
+# +----------------------+----------+----------+----------+
+# |     Class Names      | RayIoU@1 | RayIoU@2 | RayIoU@4 |
+# +----------------------+----------+----------+----------+
+# |        others        |  0.089   |  0.100   |  0.103   |
+# |       barrier        |  0.378   |  0.436   |  0.459   |
+# |       bicycle        |  0.215   |  0.252   |  0.261   |
+# |         bus          |  0.510   |  0.617   |  0.681   |
+# |         car          |  0.480   |  0.559   |  0.590   |
+# | construction_vehicle |  0.182   |  0.260   |  0.289   |
+# |      motorcycle      |  0.208   |  0.294   |  0.315   |
+# |      pedestrian      |  0.294   |  0.345   |  0.360   |
+# |     traffic_cone     |  0.272   |  0.304   |  0.312   |
+# |       trailer        |  0.206   |  0.280   |  0.367   |
+# |        truck         |  0.386   |  0.490   |  0.546   |
+# |  driveable_surface   |  0.531   |  0.615   |  0.705   |
+# |      other_flat      |  0.281   |  0.319   |  0.350   |
+# |       sidewalk       |  0.233   |  0.279   |  0.327   |
+# |       terrain        |  0.228   |  0.296   |  0.360   |
+# |       manmade        |  0.278   |  0.353   |  0.406   |
+# |      vegetation      |  0.177   |  0.276   |  0.364   |
+# +----------------------+----------+----------+----------+
+# |         MEAN         |  0.291   |  0.357   |  0.400   |
+# +----------------------+----------+----------+----------+
+# {'RayIoU': 0.34939466889746956, 'RayIoU@1': 0.29110391692490867, 'RayIoU@2': 0.3573914069210632, 'RayIoU@4': 0.39968868284643677}
