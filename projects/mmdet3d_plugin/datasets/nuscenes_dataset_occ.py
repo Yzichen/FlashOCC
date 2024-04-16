@@ -9,6 +9,10 @@ from tqdm import tqdm
 from mmdet3d.datasets import DATASETS
 from .nuscenes_dataset_bevdet import NuScenesDatasetBEVDet as NuScenesDataset
 from ..core.evaluation.occ_metrics import Metric_mIoU, Metric_FScore
+from .ego_pose_dataset import EgoPoseDataset
+from ..core.evaluation.ray_metrics import main as calc_rayiou
+from torch.utils.data import DataLoader
+
 
 colors_map = np.array(
     [
@@ -61,44 +65,84 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
         return input_dict
 
     def evaluate(self, occ_results, runner=None, show_dir=None, **eval_kwargs):
-        self.occ_eval_metrics = Metric_mIoU(
-            num_classes=18,
-            use_lidar_mask=False,
-            use_image_mask=True)
+        metric = eval_kwargs['metric'][0]
+        print("metric = ", metric)
+        if metric == 'ray-iou':
+            occ_gts = []
+            occ_preds = []
+            lidar_origins = []
 
-        print('\nStarting Evaluation...')
-        for index, occ_pred in enumerate(tqdm(occ_results)):
-            # occ_pred: (Dx, Dy, Dz)
-            info = self.data_infos[index]
-            # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
-            occ_gt = np.load(os.path.join(info['occ_path'], 'labels.npz'))
-            gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
-            mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
-            mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
-            # occ_pred = occ_pred
-            self.occ_eval_metrics.add_batch(
-                occ_pred,   # (Dx, Dy, Dz)
-                gt_semantics,   # (Dx, Dy, Dz)
-                mask_lidar,     # (Dx, Dy, Dz)
-                mask_camera     # (Dx, Dy, Dz)
+            print('\nStarting Evaluation...')
+
+            data_loader = DataLoader(
+                EgoPoseDataset(self.data_infos),
+                batch_size=1,
+                shuffle=False,
+                num_workers=8
             )
 
-            # if index % 100 == 0 and show_dir is not None:
-            #     gt_vis = self.vis_occ(gt_semantics)
-            #     pred_vis = self.vis_occ(occ_pred)
-            #     mmcv.imwrite(np.concatenate([gt_vis, pred_vis], axis=1),
-            #                  os.path.join(show_dir + "%d.jpg"%index))
+            sample_tokens = [info['token'] for info in self.data_infos]
 
-            if show_dir is not None:
-                mmcv.mkdir_or_exist(show_dir)
-                # scene_name = info['scene_name']
-                scene_name = [tem for tem in info['occ_path'].split('/') if 'scene-' in tem][0]
-                sample_token = info['token']
-                mmcv.mkdir_or_exist(os.path.join(show_dir, scene_name, sample_token))
-                save_path = os.path.join(show_dir, scene_name, sample_token, 'pred.npz')
-                np.savez_compressed(save_path, pred=occ_pred, gt=occ_gt, sample_token=sample_token)
+            for i, batch in enumerate(data_loader):
+                token = batch[0][0]
+                output_origin = batch[1]
 
-        return self.occ_eval_metrics.count_miou()
+                data_id = sample_tokens.index(token)
+                info = self.data_infos[data_id]
+                # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
+                occ_gt = np.load(os.path.join(info['occ_path'], 'labels.npz'))
+                gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
+                mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
+                mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
+                occ_pred = occ_results[data_id]     # (Dx, Dy, Dz)
+
+                lidar_origins.append(output_origin)
+                occ_gts.append(gt_semantics)
+                occ_preds.append(occ_pred)
+
+            eval_results = calc_rayiou(occ_preds, occ_gts, lidar_origins)
+        else:
+            self.occ_eval_metrics = Metric_mIoU(
+                num_classes=18,
+                use_lidar_mask=False,
+                use_image_mask=True)
+
+            print('\nStarting Evaluation...')
+            for index, occ_pred in enumerate(tqdm(occ_results)):
+                # occ_pred: (Dx, Dy, Dz)
+                info = self.data_infos[index]
+                # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
+                occ_gt = np.load(os.path.join(info['occ_path'], 'labels.npz'))
+                gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
+                mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
+                mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
+                # occ_pred = occ_pred
+                self.occ_eval_metrics.add_batch(
+                    occ_pred,   # (Dx, Dy, Dz)
+                    gt_semantics,   # (Dx, Dy, Dz)
+                    mask_lidar,     # (Dx, Dy, Dz)
+                    mask_camera     # (Dx, Dy, Dz)
+                )
+
+                # if index % 100 == 0 and show_dir is not None:
+                #     gt_vis = self.vis_occ(gt_semantics)
+                #     pred_vis = self.vis_occ(occ_pred)
+                #     mmcv.imwrite(np.concatenate([gt_vis, pred_vis], axis=1),
+                #                  os.path.join(show_dir + "%d.jpg"%index))
+
+                if show_dir is not None:
+                    mmcv.mkdir_or_exist(show_dir)
+                    # scene_name = info['scene_name']
+                    scene_name = [tem for tem in info['occ_path'].split('/') if 'scene-' in tem][0]
+                    sample_token = info['token']
+                    mmcv.mkdir_or_exist(os.path.join(show_dir, scene_name, sample_token))
+                    save_path = os.path.join(show_dir, scene_name, sample_token, 'pred.npz')
+                    np.savez_compressed(save_path, pred=occ_pred, gt=occ_gt, sample_token=sample_token)
+
+            eval_results = self.occ_eval_metrics.count_miou()
+
+        return eval_results
+
 
     def vis_occ(self, semantics):
         # simple visualization of result in BEV

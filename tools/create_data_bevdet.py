@@ -127,7 +127,7 @@ def add_ann_adj_info(extra_tag):
             scene = nuscenes.get('scene', sample['scene_token'])
             dataset['infos'][id]['scene_name'] = scene['name']
             dataset['infos'][id]['occ_path'] = \
-                'gts/%s/%s' % (scene['name'], info['token'])
+                './data/nuscenes/gts/%s/%s'%(scene['name'], info['token'])
         with open('%s/%s_infos_%s.pkl' % (dataroot, extra_tag, set),
                   'wb') as fid:
             pickle.dump(dataset, fid)

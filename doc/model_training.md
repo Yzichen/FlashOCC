@@ -13,4 +13,6 @@ python tools/train.py $config
 python tools/test.py $config $checkpoint --eval mAP
 # multiple gpu
 ./tools/dist_test.sh $config $checkpoint num_gpu --eval mAP
+# ray-iou metric
+./tools/dist_test.sh $config $checkpoint num_gpu --eval ray-iou
 ```
