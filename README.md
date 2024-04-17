@@ -1,7 +1,11 @@
 # FlashOcc: Fast and Memory-Efficient Occupancy Prediction via Channel-to-Height Plugin
 
+<div align="left">
+  <img src="figs/performance.png"/>
+</div><br/>
+
 ## News
-- **2024.03.22** Support for ray-iou metric
+- **2024.04.17** Support for ray-iou metric
 - **2024.03.22** Release the code for FlashOCCV2
 - **2024.02.03** [Release the training code for FlashOcc on UniOcc](https://github.com/drilistbox/FlashOCC_on_UniOcc_and_RenderOCC)
 - **2024.01.20** [TensorRT Implement Writen In C++ With Cuda Acceleration](https://github.com/drilistbox/TRT_FlashOcc)
