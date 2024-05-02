@@ -41,7 +41,7 @@ numC_Trans = 80
 multi_adj_frame_id_cfg = (1, 1+1, 1)
 
 model = dict(
-    type='BEVDepthPano',
+    type='BEVDepth4DPano',
     img_backbone=dict(
         type='ResNet',
         depth=50,

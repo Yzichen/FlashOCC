@@ -499,6 +499,91 @@ class BEVDepth4DOCC(BEVDepth4D):
         return outs
 
 @DETECTORS.register_module()
+class BEVDepth4DPano(BEVDepth4DOCC):
+    def __init__(self,
+                 aux_centerness_head=None,
+                 **kwargs):
+        super(BEVDepth4DPano, self).__init__(**kwargs)
+        self.aux_centerness_head = None
+        if aux_centerness_head:
+            train_cfg = kwargs['train_cfg']
+            test_cfg = kwargs['test_cfg']
+            pts_train_cfg = train_cfg.pts if train_cfg else None
+            aux_centerness_head.update(train_cfg=pts_train_cfg)
+            pts_test_cfg = test_cfg.pts if test_cfg else None
+            aux_centerness_head.update(test_cfg=pts_test_cfg)
+            self.aux_centerness_head = build_head(aux_centerness_head)
+
+    def forward_train(self,
+                      points=None,
+                      img_metas=None,
+                      gt_bboxes_3d=None,
+                      gt_labels_3d=None,
+                      gt_labels=None,
+                      gt_bboxes=None,
+                      img_inputs=None,
+                      proposals=None,
+                      gt_bboxes_ignore=None,
+                      **kwargs):
+        """Forward training function.
+
+        Args:
+            points (list[torch.Tensor], optional): Points of each sample.
+                Defaults to None.
+            img_metas (list[dict], optional): Meta information of each sample.
+                Defaults to None.
+            gt_bboxes_3d (list[:obj:`BaseInstance3DBoxes`], optional):
+                Ground truth 3D boxes. Defaults to None.
+            gt_labels_3d (list[torch.Tensor], optional): Ground truth labels
+                of 3D boxes. Defaults to None.
+            gt_labels (list[torch.Tensor], optional): Ground truth labels
+                of 2D boxes in images. Defaults to None.
+            gt_bboxes (list[torch.Tensor], optional): Ground truth 2D boxes in
+                images. Defaults to None.
+            img (torch.Tensor optional): Images of each sample with shape
+                (N, C, H, W). Defaults to None.
+            proposals ([list[torch.Tensor], optional): Predicted proposals
+                used for training Fast RCNN. Defaults to None.
+            gt_bboxes_ignore (list[torch.Tensor], optional): Ground truth
+                2D boxes in images to be ignored. Defaults to None.
+
+        Returns:
+            dict: Losses of different branches.
+        """
+        # img_feats: List[(B, C, Dz, Dy, Dx)/(B, C, Dy, Dx) , ]
+        # pts_feats: None
+        # depth: (B*N_views, D, fH, fW)
+        img_feats, pts_feats, depth = self.extract_feat(
+            points, img_inputs=img_inputs, img_metas=img_metas, **kwargs)
+
+        gt_depth = kwargs['gt_depth']   # (B, N_views, img_H, img_W)
+        losses = dict()
+        loss_depth = self.img_view_transformer.get_depth_loss(gt_depth, depth)
+        losses['loss_depth'] = loss_depth
+
+        voxel_semantics = kwargs['voxel_semantics']     # (B, Dx, Dy, Dz)
+        mask_camera = kwargs['mask_camera']     # (B, Dx, Dy, Dz)
+        loss_occ = self.forward_occ_train(img_feats[0], voxel_semantics, mask_camera)
+        losses.update(loss_occ)
+        
+        losses_aux_centerness = self.forward_aux_centerness_train([img_feats[0]], gt_bboxes_3d,
+                                    gt_labels_3d, img_metas,
+                                    gt_bboxes_ignore)
+        losses.update(losses_aux_centerness)
+        return losses
+    
+    def forward_aux_centerness_train(self,
+                          pts_feats,
+                          gt_bboxes_3d,
+                          gt_labels_3d,
+                          img_metas,
+                          gt_bboxes_ignore=None):
+        outs = self.aux_centerness_head(pts_feats)
+        loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs]
+        losses = self.aux_centerness_head.loss(*loss_inputs)
+        return losses
+        
+@DETECTORS.register_module()
 class BEVStereo4DOCC(BEVStereo4D):
     def __init__(self,
                  occ_head=None,
