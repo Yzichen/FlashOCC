@@ -7,6 +7,7 @@ import torch
 from torch.utils.cpp_extension import load
 from tqdm import tqdm
 from prettytable import PrettyTable
+from .ray_pq import Metric_RayPQ
 
 
 dvr = load("dvr", sources=["lib/dvr/dvr.cpp", "lib/dvr/dvr.cu"], verbose=True, extra_cuda_cflags=['-allow-unsupported-compiler'])
@@ -79,7 +80,7 @@ def generate_lidar_rays():
     return np.array(lidar_rays, dtype=np.float32)
 
 
-def process_one_sample(sem_pred, lidar_rays, output_origin):
+def process_one_sample(sem_pred, lidar_rays, output_origin, instance_pred=None):
     # lidar origin in ego coordinate
     # lidar_origin = torch.tensor([[[0.9858, 0.0000, 1.8402]]])
     T = output_origin.shape[1]
@@ -89,7 +90,7 @@ def process_one_sample(sem_pred, lidar_rays, output_origin):
     occ_pred = copy.deepcopy(sem_pred)
     occ_pred[sem_pred < free_id] = 1
     occ_pred[sem_pred == free_id] = 0
-    occ_pred = torch.from_numpy(occ_pred).permute(2, 1, 0)
+    occ_pred = occ_pred.permute(2, 1, 0)
     occ_pred = occ_pred[None, None, :].contiguous().float()
 
     offset = torch.Tensor(_pc_range[:3])[None, None, :]
@@ -122,11 +123,16 @@ def process_one_sample(sem_pred, lidar_rays, output_origin):
             lidar_tindex[0].cpu().numpy(),
             pred_dist[0].cpu().numpy()
         )
-        coord_index = coord_index[0, :, :].int().cpu()  # [N, 3]
+        coord_index = coord_index[0, :, :].long().cpu()  # [N, 3]
 
-        pred_label = torch.from_numpy(sem_pred[coord_index[:, 0], coord_index[:, 1], coord_index[:, 2]])[:, None]  # [N, 1]
+        pred_label = sem_pred[coord_index[:, 0], coord_index[:, 1], coord_index[:, 2]][:, None]  # [N, 1]
         pred_dist = pred_dist[0, :, None].cpu()
-        pred_pcds = torch.cat([pred_label.float(), pred_dist], dim=-1)
+        
+        if instance_pred is not None:
+            pred_instance = instance_pred[coord_index[:, 0], coord_index[:, 1], coord_index[:, 2]][:, None]  # [N, 1]
+            pred_pcds = torch.cat([pred_label.float(), pred_instance.float(), pred_dist], dim=-1)
+        else:
+            pred_pcds = torch.cat([pred_label.float(), pred_dist], dim=-1)
 
         pred_pcds_t.append(pred_pcds)
 
@@ -172,6 +178,54 @@ def calc_metrics(pcd_pred_list, pcd_gt_list):
     return iou_list
 
 
+def main_raypq(sem_pred_list, sem_gt_list, inst_pred_list, inst_gt_list, lidar_origin_list):
+    torch.cuda.empty_cache()
+
+    eval_metrics_pq = Metric_RayPQ(
+        num_classes=len(occ_class_names),
+        thresholds=[1, 2, 4]
+    )
+
+    # generate lidar rays
+    lidar_rays = generate_lidar_rays()
+    lidar_rays = torch.from_numpy(lidar_rays)
+
+    for sem_pred, sem_gt, inst_pred, inst_gt, lidar_origins in \
+        tqdm(zip(sem_pred_list, sem_gt_list, inst_pred_list, inst_gt_list, lidar_origin_list), ncols=50):
+        sem_pred = torch.from_numpy(np.reshape(sem_pred, [200, 200, 16]))
+        sem_gt = torch.from_numpy(np.reshape(sem_gt, [200, 200, 16]))
+
+        inst_pred = torch.from_numpy(np.reshape(inst_pred, [200, 200, 16]))
+        inst_gt = torch.from_numpy(np.reshape(inst_gt, [200, 200, 16]))
+
+        pcd_pred = process_one_sample(sem_pred, lidar_rays, lidar_origins, instance_pred=inst_pred)
+        pcd_gt = process_one_sample(sem_gt, lidar_rays, lidar_origins, instance_pred=inst_gt)
+
+        # evalute on non-free rays
+        valid_mask = (pcd_gt[:, 0].astype(np.int32) != len(occ_class_names) - 1)
+        pcd_pred = pcd_pred[valid_mask]
+        pcd_gt = pcd_gt[valid_mask]
+
+        assert pcd_pred.shape == pcd_gt.shape
+        
+        sem_gt = pcd_gt[:, 0].astype(np.int32)
+        sem_pred = pcd_pred[:, 0].astype(np.int32)
+
+        instances_gt = pcd_gt[:, 1].astype(np.int32)
+        instances_pred = pcd_pred[:, 1].astype(np.int32)
+
+        # L1
+        depth_gt = pcd_gt[:, 2]
+        depth_pred = pcd_pred[:, 2]
+        l1_error = np.abs(depth_pred - depth_gt)
+
+        eval_metrics_pq.add_batch(sem_pred, sem_gt, instances_pred, instances_gt, l1_error)
+
+    torch.cuda.empty_cache()
+
+    return eval_metrics_pq.count_pq()
+
+
 def main(sem_pred_list, sem_gt_list, lidar_origin_list):
     torch.cuda.empty_cache()
 
@@ -181,8 +235,8 @@ def main(sem_pred_list, sem_gt_list, lidar_origin_list):
 
     pcd_pred_list, pcd_gt_list = [], []
     for sem_pred, sem_gt, lidar_origins in tqdm(zip(sem_pred_list, sem_gt_list, lidar_origin_list), ncols=50):
-        sem_pred = np.reshape(sem_pred, [200, 200, 16])
-        sem_gt = np.reshape(sem_gt, [200, 200, 16])
+        sem_pred = torch.from_numpy(np.reshape(sem_pred, [200, 200, 16]))
+        sem_gt = torch.from_numpy(np.reshape(sem_gt, [200, 200, 16]))
 
         pcd_pred = process_one_sample(sem_pred, lidar_rays, lidar_origins)
         pcd_gt = process_one_sample(sem_gt, lidar_rays, lidar_origins)

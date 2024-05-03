@@ -7,6 +7,8 @@ from .bevstereo4d import BEVStereo4D
 from mmdet3d.models import DETECTORS
 from mmdet3d.models.builder import build_head
 import torch.nn.functional as F
+from mmdet3d.core import bbox3d2result
+import numpy as np
 
 
 @DETECTORS.register_module()
@@ -296,7 +298,11 @@ class BEVDepthPano(BEVDepthOCC):
             pts_test_cfg = test_cfg.pts if test_cfg else None
             aux_centerness_head.update(test_cfg=pts_test_cfg)
             self.aux_centerness_head = build_head(aux_centerness_head)
-
+        if 'inst_class_ids' in kwargs:
+            self.inst_class_ids = kwargs['inst_class_ids']
+        else:
+            self.inst_class_ids = [2, 3, 4, 5, 6, 7, 9, 10]
+            
     def forward_train(self,
                       points=None,
                       img_metas=None,
@@ -372,6 +378,111 @@ class BEVDepthPano(BEVDepthOCC):
         losses = self.aux_centerness_head.loss(*loss_inputs)
         return losses
         
+    def simple_test_aux_centerness(self, x, img_metas, rescale=False, **kwargs):
+        """Test function of point cloud branch."""
+        outs = self.aux_centerness_head(x)
+        bbox_list = self.aux_centerness_head.get_bboxes(
+            outs, img_metas, rescale=rescale)
+        bbox_results = [
+            bbox3d2result(bboxes, scores, labels)
+            for bboxes, scores, labels in bbox_list
+        ]
+        ins_cen_list = self.aux_centerness_head.get_centers(
+            outs, img_metas, rescale=rescale)
+        return bbox_results, ins_cen_list
+
+    def simple_test(self,
+                    points,
+                    img_metas,
+                    img=None,
+                    rescale=False,
+                    **kwargs):
+        # img_feats: List[(B, C, Dz, Dy, Dx)/(B, C, Dy, Dx) , ]
+        # pts_feats: None
+        # depth: (B*N_views, D, fH, fW)
+        result_list = [dict() for _ in range(len(img_metas))]
+        img_feats, _, _ = self.extract_feat(
+            points, img_inputs=img, img_metas=img_metas, **kwargs)
+        occ_bev_feature = img_feats[0]
+        bbox_pts, ins_cen_list = self.simple_test_aux_centerness([occ_bev_feature], img_metas, rescale=rescale, **kwargs)
+
+        if self.upsample:
+            occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                            mode='bilinear', align_corners=True)
+
+        occ_list = self.simple_test_occ(occ_bev_feature, img_metas)    # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        for result_dict, occ_pred in zip(result_list, occ_list):
+            result_dict['pred_occ'] = occ_pred
+
+        # for pano
+        grid_config_occ = {
+            'x': [-40, 40, 0.4],
+            'y': [-40, 40, 0.4],
+            'z': [-1, 5.4, 6.4],
+            'depth': [1.0, 45.0, 1.0],
+        }        
+        # det
+        det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
+            'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
+            'barrier']
+        
+        # occ
+        occ_class_names = [
+            'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
+            'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
+            'driveable_surface', 'other_flat', 'sidewalk',
+            'terrain', 'manmade', 'vegetation', 'free'
+        ]
+        inst_occ = np.ones_like(occ_pred)*255
+
+        inst_xyz = ins_cen_list[0][0].cpu()
+        inst_cls = ins_cen_list[2][0].cpu().int()
+        # insts_index_list = np.array(list(range(len(inst_cls))))
+        inst_num = 0
+        for occ_name in occ_class_names:
+            # occ_name = 'car'
+            cls_label_num_in_occ = occ_class_names.index(occ_name)
+            is_obj = cls_label_num_in_occ in self.inst_class_ids
+            if occ_name in det_class_name:
+                cls_label_num_in_inst = det_class_name.index(occ_name)
+            else:
+                is_obj = False
+
+            x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
+            indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
+            if len(x_indice) == 0:
+                continue
+
+            if is_obj:
+                select_mask = inst_cls==cls_label_num_in_inst
+                inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
+                inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
+                # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
+                # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
+                # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
+                inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
+                inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
+                inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
+                
+                if inst_index_same_cls.shape[0] > 0:
+                    select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
+                    insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
+                    inst_num += len(select_mask)
+                    if len(select_mask) == 1:
+                        insts_index_list_w_same_cls = insts_index_list
+                    else:
+                        insts_index_list_w_same_cls = insts_index_list[select_mask]
+                    inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
+                else:
+                    inst_num += 1
+                    inst_occ[x_indice, y_indice, z_indice] = inst_num
+            else:
+                inst_num += 1
+                inst_occ[x_indice, y_indice, z_indice] = inst_num
+        result_list[0]['pano_inst'] = inst_occ
+
+        return result_list
+
 @DETECTORS.register_module()
 class BEVDepth4DOCC(BEVDepth4D):
     def __init__(self,
@@ -513,7 +624,11 @@ class BEVDepth4DPano(BEVDepth4DOCC):
             pts_test_cfg = test_cfg.pts if test_cfg else None
             aux_centerness_head.update(test_cfg=pts_test_cfg)
             self.aux_centerness_head = build_head(aux_centerness_head)
-
+        if 'inst_class_ids' in kwargs:
+            self.inst_class_ids = kwargs['inst_class_ids']
+        else:
+            self.inst_class_ids = [2, 3, 4, 5, 6, 7, 9, 10]
+            
     def forward_train(self,
                       points=None,
                       img_metas=None,
@@ -583,6 +698,107 @@ class BEVDepth4DPano(BEVDepth4DOCC):
         losses = self.aux_centerness_head.loss(*loss_inputs)
         return losses
         
+    def simple_test_aux_centerness(self, x, img_metas, rescale=False, **kwargs):
+        """Test function of point cloud branch."""
+        outs = self.aux_centerness_head(x)
+        bbox_list = self.aux_centerness_head.get_bboxes(
+            outs, img_metas, rescale=rescale)
+        bbox_results = [
+            bbox3d2result(bboxes, scores, labels)
+            for bboxes, scores, labels in bbox_list
+        ]
+        ins_cen_list = self.aux_centerness_head.get_centers(
+            outs, img_metas, rescale=rescale)
+        return bbox_results, ins_cen_list
+
+    def simple_test(self,
+                    points,
+                    img_metas,
+                    img=None,
+                    rescale=False,
+                    **kwargs):
+        # img_feats: List[(B, C, Dz, Dy, Dx)/(B, C, Dy, Dx) , ]
+        # pts_feats: None
+        # depth: (B*N_views, D, fH, fW)
+        result_list = [dict() for _ in range(len(img_metas))]
+        img_feats, _, _ = self.extract_feat(
+            points, img_inputs=img, img_metas=img_metas, **kwargs)
+        occ_bev_feature = img_feats[0]
+        bbox_pts, ins_cen_list = self.simple_test_aux_centerness([occ_bev_feature], img_metas, rescale=rescale, **kwargs)
+
+        occ_list = self.simple_test_occ(occ_bev_feature, img_metas)    # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        for result_dict, occ_pred in zip(result_list, occ_list):
+            result_dict['pred_occ'] = occ_pred
+
+        # for pano
+        grid_config_occ = {
+            'x': [-40, 40, 0.4],
+            'y': [-40, 40, 0.4],
+            'z': [-1, 5.4, 6.4],
+            'depth': [1.0, 45.0, 1.0],
+        }        
+        # det
+        det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
+            'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
+            'barrier']
+        
+        # occ
+        occ_class_names = [
+            'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
+            'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
+            'driveable_surface', 'other_flat', 'sidewalk',
+            'terrain', 'manmade', 'vegetation', 'free'
+        ]
+        inst_occ = np.ones_like(occ_pred)*255
+
+        inst_xyz = ins_cen_list[0][0].cpu()
+        inst_cls = ins_cen_list[2][0].cpu().int()
+        # insts_index_list = np.array(list(range(len(inst_cls))))
+        inst_num = 0
+        for occ_name in occ_class_names:
+            # occ_name = 'car'
+            cls_label_num_in_occ = occ_class_names.index(occ_name)
+            is_obj = cls_label_num_in_occ in self.inst_class_ids
+            if occ_name in det_class_name:
+                cls_label_num_in_inst = det_class_name.index(occ_name)
+            else:
+                is_obj = False
+
+            x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
+            indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
+            if len(x_indice) == 0:
+                continue
+
+            if is_obj:
+                select_mask = inst_cls==cls_label_num_in_inst
+                inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
+                inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
+                # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
+                # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
+                # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
+                inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
+                inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
+                inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
+                
+                if inst_index_same_cls.shape[0] > 0:
+                    select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
+                    insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
+                    inst_num += len(select_mask)
+                    if len(select_mask) == 1:
+                        insts_index_list_w_same_cls = insts_index_list
+                    else:
+                        insts_index_list_w_same_cls = insts_index_list[select_mask]
+                    inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
+                else:
+                    inst_num += 1
+                    inst_occ[x_indice, y_indice, z_indice] = inst_num
+            else:
+                inst_num += 1
+                inst_occ[x_indice, y_indice, z_indice] = inst_num
+        result_list[0]['pano_inst'] = inst_occ
+
+        return result_list
+
 @DETECTORS.register_module()
 class BEVStereo4DOCC(BEVStereo4D):
     def __init__(self,

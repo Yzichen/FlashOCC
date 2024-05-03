@@ -12,6 +12,9 @@ from ..core.evaluation.occ_metrics import Metric_mIoU, Metric_FScore
 from .ego_pose_dataset import EgoPoseDataset
 from ..core.evaluation.ray_metrics import main as calc_rayiou
 from torch.utils.data import DataLoader
+from ..core.evaluation.ray_metrics import main_raypq
+import torch
+import glob
 
 
 colors_map = np.array(
@@ -71,7 +74,9 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
             occ_gts = []
             occ_preds = []
             lidar_origins = []
-
+            inst_gts = []
+            inst_preds = []
+            
             print('\nStarting Evaluation...')
 
             data_loader = DataLoader(
@@ -84,23 +89,35 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
             sample_tokens = [info['token'] for info in self.data_infos]
 
             for i, batch in enumerate(data_loader):
+                # if i > 5:
+                #     break
                 token = batch[0][0]
                 output_origin = batch[1]
 
                 data_id = sample_tokens.index(token)
                 info = self.data_infos[data_id]
                 # occ_gt = np.load(os.path.join(self.data_root, info['occ_path'], 'labels.npz'))
-                occ_gt = np.load(os.path.join(info['occ_path'], 'labels.npz'))
+                # occ_gt = np.load(os.path.join(info['occ_path'], 'labels.npz'))
+                occ_gt = np.load(os.path.join(info['occ_path'].replace('data/nuscenes/gts/', 'data/nuscenes/occ3d_panoptic/'), 'labels.npz'))
                 gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
                 mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
                 mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
-                occ_pred = occ_results[data_id]     # (Dx, Dy, Dz)
+                occ_pred = occ_results[data_id]['pred_occ']     # (Dx, Dy, Dz)
 
                 lidar_origins.append(output_origin)
                 occ_gts.append(gt_semantics)
                 occ_preds.append(occ_pred)
 
+                if 'pano_inst' in occ_results[data_id].keys():
+                    pano_inst = torch.from_numpy(occ_results[data_id]['pano_inst'])
+                    pano_inst = pano_inst.squeeze(0).numpy()
+                    gt_instances = occ_gt['instances']
+                    inst_gts.append(gt_instances)
+                    inst_preds.append(pano_inst)
+                    
             eval_results = calc_rayiou(occ_preds, occ_gts, lidar_origins)
+            if len(inst_preds) > 0:
+                eval_results.update(main_raypq(occ_preds, occ_gts, inst_preds, inst_gts, lidar_origins))
         else:
             self.occ_eval_metrics = Metric_mIoU(
                 num_classes=18,
@@ -118,7 +135,7 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                 mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
                 # occ_pred = occ_pred
                 self.occ_eval_metrics.add_batch(
-                    occ_pred,   # (Dx, Dy, Dz)
+                    occ_pred['pred_occ'],   # (Dx, Dy, Dz)
                     gt_semantics,   # (Dx, Dy, Dz)
                     mask_lidar,     # (Dx, Dy, Dz)
                     mask_camera     # (Dx, Dy, Dz)
@@ -137,7 +154,7 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                     sample_token = info['token']
                     mmcv.mkdir_or_exist(os.path.join(show_dir, scene_name, sample_token))
                     save_path = os.path.join(show_dir, scene_name, sample_token, 'pred.npz')
-                    np.savez_compressed(save_path, pred=occ_pred, gt=occ_gt, sample_token=sample_token)
+                    np.savez_compressed(save_path, pred=occ_pred['pred_occ'], gt=occ_gt, sample_token=sample_token)
 
             eval_results = self.occ_eval_metrics.count_miou()
 
