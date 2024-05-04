@@ -35,7 +35,7 @@ plt.plot(fps, ray_iou, color=None, linestyle='-')  # 修改线型
 # ray_iou = [34.57, 34.93, 35.99, 38.51]
 # labels = ['FlashOccV2-\nTiny(1f)', 'FlashOccV2(1f)', 'FlashOccV2(2f)', 'FlashOccV2(8f)']
 fps = [29.0, 22.6, 22.0, 20.3]
-ray_iou = [34.81, 35.22, 36.76, 39.12]
+ray_iou = [34.81, 35.22, 36.76, 38.50]
 labels = ['FlashOccV2-\nTiny(1f)', 'FlashOccV2(1f)', 'FlashOccV2(2f)', 'FlashOccV2(8f)']
 plt.scatter(fps, ray_iou, color='orange')
 # 添加文本
