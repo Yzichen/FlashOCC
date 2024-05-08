@@ -42,7 +42,7 @@ cd Path_to_FlashOcc/FlashOcc/projects
 pip install -v -e . 
 ```
 
-step 3. Prepare nuScenes dataset as introduced in [nuscenes_det.md](docs/en/datasets/nuscenes_det.md) and create the pkl for FlashOCC by running:
+step 3. Prepare nuScenes dataset as introduced in [nuscenes_det.md](nuscenes_det.md) and create the pkl for FlashOCC by running:
 ```shell
 python tools/create_data_bevdet.py
 ```
