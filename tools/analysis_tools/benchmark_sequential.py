@@ -12,7 +12,7 @@ from mmdet3d.datasets import build_dataloader, build_dataset
 from mmdet3d.models import build_detector
 from tools.misc.fuse_conv_bn import fuse_module
 
-sys.path.insert(0, '/home/zichen/Documents/Project/BEV/Custom/FlashOCC')
+sys.path.insert(0, os.getcwd())
 print(sys.path)
 
 def parse_args():
@@ -27,6 +27,12 @@ def parse_args():
         action='store_true',
         help='Whether to fuse conv and bn, this will slightly increase'
         'the inference speed')
+    parser.add_argument(
+        '--w_pano',
+        action='store_true')
+    parser.add_argument(
+        '--w_panoproc',
+        action='store_true')
     parser.add_argument(
         '--no-acceleration',
         action='store_true',
@@ -100,6 +106,12 @@ def main():
     pure_inf_time = 0
 
     # benchmark with several samples and take the average
+    # # for i, data_ori in enumerate(data_loader):
+    # #     if i == 0:
+    # #         break
+    # # import copy
+    # # for i in range(500):
+    # #     data = copy.deepcopy(data_ori)
     for i, data in enumerate(data_loader):
         inputs = [d.cuda() for d in data['img_inputs'][0]]
         with torch.no_grad():
@@ -116,6 +128,8 @@ def main():
                 rescale=True,
                 sequential=True,
                 feat_prev=feat_prev,
+                w_pano=args.w_pano,
+                w_panoproc=args.w_panoproc,
                 **data)
 
         torch.cuda.synchronize()

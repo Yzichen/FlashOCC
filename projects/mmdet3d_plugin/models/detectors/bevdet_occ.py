@@ -404,7 +404,9 @@ class BEVDepthPano(BEVDepthOCC):
         img_feats, _, _ = self.extract_feat(
             points, img_inputs=img, img_metas=img_metas, **kwargs)
         occ_bev_feature = img_feats[0]
-        bbox_pts, ins_cen_list = self.simple_test_aux_centerness([occ_bev_feature], img_metas, rescale=rescale, **kwargs)
+        w_pano = kwargs['w_pano'] if 'w_pano' in kwargs else True
+        if w_pano == True:
+            bbox_pts, ins_cen_list = self.simple_test_aux_centerness([occ_bev_feature], img_metas, rescale=rescale, **kwargs)
 
         if self.upsample:
             occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
@@ -414,72 +416,74 @@ class BEVDepthPano(BEVDepthOCC):
         for result_dict, occ_pred in zip(result_list, occ_list):
             result_dict['pred_occ'] = occ_pred
 
-        # for pano
-        grid_config_occ = {
-            'x': [-40, 40, 0.4],
-            'y': [-40, 40, 0.4],
-            'z': [-1, 5.4, 6.4],
-            'depth': [1.0, 45.0, 1.0],
-        }        
-        # det
-        det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
-            'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
-            'barrier']
-        
-        # occ
-        occ_class_names = [
-            'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
-            'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
-            'driveable_surface', 'other_flat', 'sidewalk',
-            'terrain', 'manmade', 'vegetation', 'free'
-        ]
-        inst_occ = np.ones_like(occ_pred)*255
+        w_panoproc = kwargs['w_panoproc'] if 'w_panoproc' in kwargs else True
+        if w_panoproc == True:
+            # for pano
+            grid_config_occ = {
+                'x': [-40, 40, 0.4],
+                'y': [-40, 40, 0.4],
+                'z': [-1, 5.4, 6.4],
+                'depth': [1.0, 45.0, 1.0],
+            }        
+            # det
+            det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
+                'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
+                'barrier']
+            
+            # occ
+            occ_class_names = [
+                'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
+                'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
+                'driveable_surface', 'other_flat', 'sidewalk',
+                'terrain', 'manmade', 'vegetation', 'free'
+            ]
+            inst_occ = np.ones_like(occ_pred)*255
 
-        inst_xyz = ins_cen_list[0][0].cpu()
-        inst_cls = ins_cen_list[2][0].cpu().int()
-        # insts_index_list = np.array(list(range(len(inst_cls))))
-        inst_num = 0
-        for occ_name in occ_class_names:
-            # occ_name = 'car'
-            cls_label_num_in_occ = occ_class_names.index(occ_name)
-            is_obj = cls_label_num_in_occ in self.inst_class_ids
-            if occ_name in det_class_name:
-                cls_label_num_in_inst = det_class_name.index(occ_name)
-            else:
-                is_obj = False
+            inst_xyz = ins_cen_list[0][0].cpu()
+            inst_cls = ins_cen_list[2][0].cpu().int()
+            # insts_index_list = np.array(list(range(len(inst_cls))))
+            inst_num = 0
+            for occ_name in occ_class_names:
+                # occ_name = 'car'
+                cls_label_num_in_occ = occ_class_names.index(occ_name)
+                is_obj = cls_label_num_in_occ in self.inst_class_ids
+                if occ_name in det_class_name:
+                    cls_label_num_in_inst = det_class_name.index(occ_name)
+                else:
+                    is_obj = False
 
-            x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
-            indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
-            if len(x_indice) == 0:
-                continue
+                x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
+                indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
+                if len(x_indice) == 0:
+                    continue
 
-            if is_obj:
-                select_mask = inst_cls==cls_label_num_in_inst
-                inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
-                inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
-                # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
-                # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
-                # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
-                inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
-                inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
-                inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
-                
-                if inst_index_same_cls.shape[0] > 0:
-                    select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
-                    insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
-                    inst_num += len(select_mask)
-                    if len(select_mask) == 1:
-                        insts_index_list_w_same_cls = insts_index_list
+                if is_obj:
+                    select_mask = inst_cls==cls_label_num_in_inst
+                    inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
+                    inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
+                    # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
+                    # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
+                    # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
+                    inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
+                    inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
+                    inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
+                    
+                    if inst_index_same_cls.shape[0] > 0:
+                        select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
+                        insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
+                        inst_num += len(select_mask)
+                        if len(select_mask) == 1:
+                            insts_index_list_w_same_cls = insts_index_list
+                        else:
+                            insts_index_list_w_same_cls = insts_index_list[select_mask]
+                        inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
                     else:
-                        insts_index_list_w_same_cls = insts_index_list[select_mask]
-                    inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
+                        inst_num += 1
+                        inst_occ[x_indice, y_indice, z_indice] = inst_num
                 else:
                     inst_num += 1
                     inst_occ[x_indice, y_indice, z_indice] = inst_num
-            else:
-                inst_num += 1
-                inst_occ[x_indice, y_indice, z_indice] = inst_num
-        result_list[0]['pano_inst'] = inst_occ
+            result_list[0]['pano_inst'] = inst_occ
 
         return result_list
 
@@ -724,78 +728,82 @@ class BEVDepth4DPano(BEVDepth4DOCC):
         img_feats, _, _ = self.extract_feat(
             points, img_inputs=img, img_metas=img_metas, **kwargs)
         occ_bev_feature = img_feats[0]
-        bbox_pts, ins_cen_list = self.simple_test_aux_centerness([occ_bev_feature], img_metas, rescale=rescale, **kwargs)
+        w_pano = kwargs['w_pano'] if 'w_pano' in kwargs else True
+        if w_pano == True:
+            bbox_pts, ins_cen_list = self.simple_test_aux_centerness([occ_bev_feature], img_metas, rescale=rescale, **kwargs)
 
         occ_list = self.simple_test_occ(occ_bev_feature, img_metas)    # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         for result_dict, occ_pred in zip(result_list, occ_list):
             result_dict['pred_occ'] = occ_pred
 
-        # for pano
-        grid_config_occ = {
-            'x': [-40, 40, 0.4],
-            'y': [-40, 40, 0.4],
-            'z': [-1, 5.4, 6.4],
-            'depth': [1.0, 45.0, 1.0],
-        }        
-        # det
-        det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
-            'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
-            'barrier']
-        
-        # occ
-        occ_class_names = [
-            'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
-            'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
-            'driveable_surface', 'other_flat', 'sidewalk',
-            'terrain', 'manmade', 'vegetation', 'free'
-        ]
-        inst_occ = np.ones_like(occ_pred)*255
+        w_panoproc = kwargs['w_panoproc'] if 'w_panoproc' in kwargs else True
+        if w_panoproc == True:
+            # for pano
+            grid_config_occ = {
+                'x': [-40, 40, 0.4],
+                'y': [-40, 40, 0.4],
+                'z': [-1, 5.4, 6.4],
+                'depth': [1.0, 45.0, 1.0],
+            }        
+            # det
+            det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
+                'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
+                'barrier']
+            
+            # occ
+            occ_class_names = [
+                'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
+                'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
+                'driveable_surface', 'other_flat', 'sidewalk',
+                'terrain', 'manmade', 'vegetation', 'free'
+            ]
+            inst_occ = np.ones_like(occ_pred)*255
 
-        inst_xyz = ins_cen_list[0][0].cpu()
-        inst_cls = ins_cen_list[2][0].cpu().int()
-        # insts_index_list = np.array(list(range(len(inst_cls))))
-        inst_num = 0
-        for occ_name in occ_class_names:
-            # occ_name = 'car'
-            cls_label_num_in_occ = occ_class_names.index(occ_name)
-            is_obj = cls_label_num_in_occ in self.inst_class_ids
-            if occ_name in det_class_name:
-                cls_label_num_in_inst = det_class_name.index(occ_name)
-            else:
-                is_obj = False
+            inst_xyz = ins_cen_list[0][0].cpu()
+            inst_cls = ins_cen_list[2][0].cpu().int()
+            # insts_index_list = np.array(list(range(len(inst_cls))))
+            inst_num = 0
+            for occ_name in occ_class_names:
+                # occ_name = 'car'
+                cls_label_num_in_occ = occ_class_names.index(occ_name)
+                is_obj = cls_label_num_in_occ in self.inst_class_ids
+                if occ_name in det_class_name:
+                    cls_label_num_in_inst = det_class_name.index(occ_name)
+                else:
+                    is_obj = False
 
-            x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
-            indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
-            if len(x_indice) == 0:
-                continue
+                x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
+                indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
+                if len(x_indice) == 0:
+                    continue
 
-            if is_obj:
-                select_mask = inst_cls==cls_label_num_in_inst
-                inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
-                inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
-                # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
-                # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
-                # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
-                inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
-                inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
-                inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
-                
-                if inst_index_same_cls.shape[0] > 0:
-                    select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
-                    insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
-                    inst_num += len(select_mask)
-                    if len(select_mask) == 1:
-                        insts_index_list_w_same_cls = insts_index_list
+                if is_obj:
+                    select_mask = inst_cls==cls_label_num_in_inst
+                    inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
+                    inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
+                    # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
+                    # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
+                    # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
+                    inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
+                    inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
+                    inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
+                    
+                    if inst_index_same_cls.shape[0] > 0:
+                        select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
+                        insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
+                        inst_num += len(select_mask)
+                        if len(select_mask) == 1:
+                            insts_index_list_w_same_cls = insts_index_list
+                        else:
+                            insts_index_list_w_same_cls = insts_index_list[select_mask]
+                        inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
                     else:
-                        insts_index_list_w_same_cls = insts_index_list[select_mask]
-                    inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
+                        inst_num += 1
+                        inst_occ[x_indice, y_indice, z_indice] = inst_num
                 else:
                     inst_num += 1
                     inst_occ[x_indice, y_indice, z_indice] = inst_num
-            else:
-                inst_num += 1
-                inst_occ[x_indice, y_indice, z_indice] = inst_num
-        result_list[0]['pano_inst'] = inst_occ
+            result_list[0]['pano_inst'] = inst_occ
 
         return result_list
 
