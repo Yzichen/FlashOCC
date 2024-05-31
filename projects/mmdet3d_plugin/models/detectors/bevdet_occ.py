@@ -966,6 +966,68 @@ class BEVDetOCCTRT(BEVDetOCC):
             outs_.append(outs_head)
         return outs_
 
+    def forward_part1(
+        self,
+        img,
+    ):
+        x = self.img_backbone(img)
+        x = self.img_neck(x)
+        x = self.img_view_transformer.depth_net(x[0])
+        depth = x[:, :self.img_view_transformer.D].softmax(dim=1)
+        tran_feat = x[:, self.img_view_transformer.D:(
+            self.img_view_transformer.D +
+            self.img_view_transformer.out_channels)]
+        tran_feat = tran_feat.permute(0, 2, 3, 1)
+        # depth = depth.reshape(-1)
+        # tran_feat = tran_feat.flatten(0,2)
+        return tran_feat.flatten(0,2), depth.reshape(-1)
+
+    def forward_part2(
+        self,
+        tran_feat,
+        depth,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+    ):
+        tran_feat = tran_feat.reshape(6, 16, 44, 64)
+        depth = depth.reshape(6, 16, 44, 44)
+        x = TRTBEVPoolv2.apply(depth.contiguous(), tran_feat.contiguous(),
+                               ranks_depth, ranks_feat, ranks_bev,
+                               interval_starts, interval_lengths,
+                               int(self.img_view_transformer.grid_size[0].item()),
+                               int(self.img_view_transformer.grid_size[1].item()),
+                               int(self.img_view_transformer.grid_size[2].item())
+                               ) # -> [1, 64, 200, 200]
+        return x.reshape(-1)
+
+    def forward_part3(
+        self,
+        x
+    ):
+        x = x.reshape(1, 200, 200, 64)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        # return [x, 2*x, 3*x, 4*x, 5*x, 6*x, 7*x]
+        bev_feature = self.img_bev_encoder_backbone(x)
+        occ_bev_feature = self.img_bev_encoder_neck(bev_feature)
+
+        outs_occ = None
+        if self.wocc == True:
+            if self.uni_train == True:
+                if self.upsample:
+                    occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                                    mode='bilinear', align_corners=True)
+            outs_occ = self.occ_head(occ_bev_feature)
+
+        outs_det3d = None
+        if self.wdet3d == True:
+            outs_det3d = self.pts_bbox_head([occ_bev_feature])
+
+        outs = self.result_serialize(outs_det3d, outs_occ)
+        return outs
+    
     def forward_ori(
         self,
         img,
@@ -1147,4 +1209,190 @@ class BEVDepthOCCTRT(BEVDetOCC):
         return self.img_view_transformer.voxel_pooling_prepare_v2(coor), mlp_input
 
 
+@DETECTORS.register_module()
+class BEVDepthPanoTRT(BEVDepthPano):
+    def __init__(self,
+                 wocc=True,
+                 wdet3d=True,
+                 uni_train=True,
+                 **kwargs):
+        super(BEVDepthPanoTRT, self).__init__(**kwargs)
+        self.wocc = wocc
+        self.wdet3d = wdet3d
+        self.uni_train = uni_train
+        
+    def result_serialize(self, outs_det3d=None, outs_occ=None):
+        outs_ = []
+        if outs_det3d is not None:
+            for out in outs_det3d:
+                for key in ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']:
+                    outs_.append(out[0][key])
+        if outs_occ is not None:
+            outs_.append(outs_occ)
+        return outs_
 
+    def result_deserialize(self, outs):
+        outs_ = []
+        keys = ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']
+        for head_id in range(len(outs) // 6):
+            outs_head = [dict()]
+            for kid, key in enumerate(keys):
+                outs_head[0][key] = outs[head_id * 6 + kid]
+            outs_.append(outs_head)
+        return outs_
+
+    def forward_part1(
+        self,
+        img,
+        mlp_input,
+    ):
+        x = self.img_backbone(img)
+        x = self.img_neck(x)
+        x = self.img_view_transformer.depth_net(x[0], mlp_input)
+        depth = x[:, :self.img_view_transformer.D].softmax(dim=1)
+        tran_feat = x[:, self.img_view_transformer.D:(
+            self.img_view_transformer.D +
+            self.img_view_transformer.out_channels)]
+        tran_feat = tran_feat.permute(0, 2, 3, 1)
+        # depth = depth.reshape(-1)
+        # tran_feat = tran_feat.flatten(0,2)
+        return tran_feat.flatten(0,2), depth.reshape(-1)
+
+    def forward_part2(
+        self,
+        tran_feat,
+        depth,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+    ):
+        tran_feat = tran_feat.reshape(6, 16, 44, 64)
+        depth = depth.reshape(6, 16, 44, 44)
+        x = TRTBEVPoolv2.apply(depth.contiguous(), tran_feat.contiguous(),
+                               ranks_depth, ranks_feat, ranks_bev,
+                               interval_starts, interval_lengths,
+                               int(self.img_view_transformer.grid_size[0].item()),
+                               int(self.img_view_transformer.grid_size[1].item()),
+                               int(self.img_view_transformer.grid_size[2].item())
+                               ) # -> [1, 64, 200, 200]
+        return x.reshape(-1)
+
+    def forward_part3(
+        self,
+        x
+    ):
+        x = x.reshape(1, 200, 200, 64)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        # return [x, 2*x, 3*x, 4*x, 5*x, 6*x, 7*x]
+        bev_feature = self.img_bev_encoder_backbone(x)
+        occ_bev_feature = self.img_bev_encoder_neck(bev_feature)
+
+        outs_occ = None
+        if self.wocc == True:
+            if self.uni_train == True:
+                if self.upsample:
+                    occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                                    mode='bilinear', align_corners=True)
+            outs_occ = self.occ_head(occ_bev_feature)
+
+        outs_det3d = None
+        if self.wdet3d == True:
+            outs_det3d = self.pts_bbox_head([occ_bev_feature])
+        outs = self.result_serialize(outs_det3d, outs_occ)
+        
+        # outs_inst_center = self.aux_centerness_head([occ_bev_feature])
+        x = self.aux_centerness_head.shared_conv(occ_bev_feature)     # (B, C'=share_conv_channel, H, W)
+        # 运行不同task_head,
+        outs_inst_center_reg = self.aux_centerness_head.task_heads[0].reg(x)
+        outs.append(outs_inst_center_reg)
+        outs_inst_center_height = self.aux_centerness_head.task_heads[0].height(x)
+        outs.append(outs_inst_center_height)
+        outs_inst_center_heatmap = self.aux_centerness_head.task_heads[0].heatmap(x)
+        outs.append(outs_inst_center_heatmap)
+
+    def forward_ori(
+        self,
+        img,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+        mlp_input,
+    ):
+        x = self.img_backbone(img)
+        x = self.img_neck(x)
+        x = self.img_view_transformer.depth_net(x[0], mlp_input)
+        depth = x[:, :self.img_view_transformer.D].softmax(dim=1)
+        tran_feat = x[:, self.img_view_transformer.D:(
+            self.img_view_transformer.D +
+            self.img_view_transformer.out_channels)]
+        tran_feat = tran_feat.permute(0, 2, 3, 1)
+        x = TRTBEVPoolv2.apply(depth.contiguous(), tran_feat.contiguous(),
+                               ranks_depth, ranks_feat, ranks_bev,
+                               interval_starts, interval_lengths,
+                               int(self.img_view_transformer.grid_size[0].item()),
+                               int(self.img_view_transformer.grid_size[1].item()),
+                               int(self.img_view_transformer.grid_size[2].item())
+                               )
+        x = x.permute(0, 3, 1, 2).contiguous()
+        # return [x, 2*x, 3*x, 4*x, 5*x, 6*x, 7*x]
+        bev_feature = self.img_bev_encoder_backbone(x)
+        occ_bev_feature = self.img_bev_encoder_neck(bev_feature)
+
+        outs_occ = None
+        if self.wocc == True:
+            if self.uni_train == True:
+                if self.upsample:
+                    occ_bev_feature = F.interpolate(occ_bev_feature, scale_factor=2,
+                                                    mode='bilinear', align_corners=True)
+            outs_occ = self.occ_head(occ_bev_feature)
+
+        outs_det3d = None
+        if self.wdet3d == True:
+            outs_det3d = self.pts_bbox_head([occ_bev_feature])
+        outs = self.result_serialize(outs_det3d, outs_occ)
+
+        # outs_inst_center = self.aux_centerness_head([occ_bev_feature])
+        x = self.aux_centerness_head.shared_conv(occ_bev_feature)     # (B, C'=share_conv_channel, H, W)
+        # 运行不同task_head,
+        outs_inst_center_reg = self.aux_centerness_head.task_heads[0].reg(x)
+        outs.append(outs_inst_center_reg)
+        outs_inst_center_height = self.aux_centerness_head.task_heads[0].height(x)
+        outs.append(outs_inst_center_height)
+        outs_inst_center_heatmap = self.aux_centerness_head.task_heads[0].heatmap(x)
+        outs.append(outs_inst_center_heatmap)
+
+        return outs
+
+    def forward_with_argmax(
+        self,
+        img,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+        mlp_input,
+    ):
+
+        outs = self.forward_ori(
+                img,
+                ranks_depth,
+                ranks_feat,
+                ranks_bev,
+                interval_starts,
+                interval_lengths,
+                mlp_input,
+            )
+        pred_occ_label = outs[0].argmax(-1)
+        return pred_occ_label, *outs[1:]
+
+    def get_bev_pool_input(self, input):
+        input = self.prepare_inputs(input)
+        coor = self.img_view_transformer.get_lidar_coor(*input[1:7])
+        mlp_input = self.img_view_transformer.get_mlp_input(*input[1:7])
+                # sensor2keyegos, ego2globals, intrins, post_rots, post_trans, bda)  # (B, N_views, 27)
+        return self.img_view_transformer.voxel_pooling_prepare_v2(coor), mlp_input
