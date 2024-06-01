@@ -470,13 +470,15 @@ class BEVDepthPano(BEVDepthOCC):
                     
                     if inst_index_same_cls.shape[0] > 0:
                         select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
-                        insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
-                        inst_num += len(select_mask)
-                        if len(select_mask) == 1:
-                            insts_index_list_w_same_cls = insts_index_list
-                        else:
-                            insts_index_list_w_same_cls = insts_index_list[select_mask]
-                        inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
+                        # # insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
+                        # # inst_num += len(select_mask)
+                        # # if len(select_mask) == 1:
+                        # #     insts_index_list_w_same_cls = insts_index_list
+                        # # else:
+                        # #     insts_index_list_w_same_cls = insts_index_list[select_mask]
+                        # # inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
+                        inst_occ[x_indice, y_indice, z_indice] = select_ind + 1 + inst_num
+                        inst_num += inst_index_same_cls.shape[0]
                     else:
                         inst_num += 1
                         inst_occ[x_indice, y_indice, z_indice] = inst_num

@@ -135,7 +135,7 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                 mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
                 # occ_pred = occ_pred
                 self.occ_eval_metrics.add_batch(
-                    occ_pred['pred_occ'],   # (Dx, Dy, Dz)
+                    occ_pred['pred_occ'] if (isinstance(occ_pred, dict) and 'pred_occ' in occ_pred) else occ_pred,   # (Dx, Dy, Dz)
                     gt_semantics,   # (Dx, Dy, Dz)
                     mask_lidar,     # (Dx, Dy, Dz)
                     mask_camera     # (Dx, Dy, Dz)
@@ -146,7 +146,7 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                 #     pred_vis = self.vis_occ(occ_pred)
                 #     mmcv.imwrite(np.concatenate([gt_vis, pred_vis], axis=1),
                 #                  os.path.join(show_dir + "%d.jpg"%index))
-
+                
                 if show_dir is not None:
                     mmcv.mkdir_or_exist(show_dir)
                     # scene_name = info['scene_name']
@@ -154,7 +154,7 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                     sample_token = info['token']
                     mmcv.mkdir_or_exist(os.path.join(show_dir, scene_name, sample_token))
                     save_path = os.path.join(show_dir, scene_name, sample_token, 'pred.npz')
-                    np.savez_compressed(save_path, pred=occ_pred['pred_occ'], gt=occ_gt, sample_token=sample_token)
+                    np.savez_compressed(save_path, pred=occ_pred['pred_occ'] if (isinstance(occ_pred, dict) and 'pred_occ' in occ_pred) else occ_pred, gt=occ_gt, sample_token=sample_token)
 
             eval_results = self.occ_eval_metrics.count_miou()
 
