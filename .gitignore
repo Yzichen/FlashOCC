@@ -20,3 +20,7 @@ build-old
 ppl.cv
 .vscode
 *.npz
+
+vis/
+*.jpg
+*.png
