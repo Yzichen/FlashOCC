@@ -426,16 +426,27 @@ class BEVDepthPano(BEVDepthOCC):
         
     def simple_test_aux_centerness(self, x, img_metas, rescale=False, **kwargs):
         """Test function of point cloud branch."""
-        outs = self.aux_centerness_head(x)
-        bbox_list = self.aux_centerness_head.get_bboxes(
-            outs, img_metas, rescale=rescale)
-        bbox_results = [
-            bbox3d2result(bboxes, scores, labels)
-            for bboxes, scores, labels in bbox_list
-        ]
+        # outs = self.aux_centerness_head(x)
+        tx = self.aux_centerness_head.shared_conv(x[0])     # (B, C'=share_conv_channel, H, W)
+        outs_inst_center_reg = self.aux_centerness_head.task_heads[0].reg(tx)
+        outs_inst_center_height = self.aux_centerness_head.task_heads[0].height(tx)
+        outs_inst_center_heatmap = self.aux_centerness_head.task_heads[0].heatmap(tx)
+        outs = ([{
+            "reg" : outs_inst_center_reg,
+            "height" : outs_inst_center_height,
+            "heatmap" : outs_inst_center_heatmap,
+        }],)
+                
+        # # bbox_list = self.aux_centerness_head.get_bboxes(
+        # #     outs, img_metas, rescale=rescale)
+        # # bbox_results = [
+        # #     bbox3d2result(bboxes, scores, labels)
+        # #     for bboxes, scores, labels in bbox_list
+        # # ]
         ins_cen_list = self.aux_centerness_head.get_centers(
             outs, img_metas, rescale=rescale)
-        return bbox_results, ins_cen_list
+        # return bbox_results, ins_cen_list
+        return None, ins_cen_list
 
     def simple_test(self,
                     points,
