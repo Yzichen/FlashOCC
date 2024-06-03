@@ -389,3 +389,16 @@ class BEVOCCHead2D_V2(BaseModule):      # Use stronger loss setting
         occ_res = occ_score.argmax(-1)      # (B, Dx, Dy, Dz)
         occ_res = occ_res.cpu().numpy().astype(np.uint8)     # (B, Dx, Dy, Dz)
         return list(occ_res)
+
+    def get_occ_gpu(self, occ_pred, img_metas=None):
+        """
+        Args:
+            occ_pred: (B, Dx, Dy, Dz, C)
+            img_metas:
+
+        Returns:
+            List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        """
+        occ_score = occ_pred.softmax(-1)    # (B, Dx, Dy, Dz, C)
+        occ_res = occ_score.argmax(-1).int()      # (B, Dx, Dy, Dz)
+        return list(occ_res)

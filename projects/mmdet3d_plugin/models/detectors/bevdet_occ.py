@@ -308,7 +308,8 @@ class BEVDepthOCC(BEVDepth):
             occ_preds: List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         """
         outs = self.occ_head(img_feats)
-        occ_preds = self.occ_head.get_occ(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        # occ_preds = self.occ_head.get_occ(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        occ_preds = self.occ_head.get_occ_gpu(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         return occ_preds
 
     def forward_dummy(self,
@@ -497,9 +498,9 @@ class BEVDepthPano(BEVDepthOCC):
             inst_cls = ins_cen_list[2][0].int()
             
             inst_num = 18
-            inst_occ = torch.tensor(occ_pred).to(inst_cls)
+            inst_occ = occ_pred
             for cls_label_num_in_occ in self.inst_class_ids:
-                mask = occ_pred == cls_label_num_in_occ
+                mask = occ_pred == cls_label_num_in_occ   # 0.2ms
                 if mask.sum() == 0:
                     continue
                 else:
@@ -515,7 +516,7 @@ class BEVDepthPano(BEVDepthOCC):
                     #     inst_num += 1
                     #     inst_occ[mask] = inst_num
                     
-            result_list[0]['pano_inst'] = inst_occ.cpu().numpy()
+            result_list[0]['pano_inst'] = inst_occ
 
 
         # # w_panoproc = kwargs['w_panoproc'] if 'w_panoproc' in kwargs else True
