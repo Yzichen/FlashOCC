@@ -349,6 +349,15 @@ class BEVDepthPano(BEVDepthOCC):
         else:
             self.inst_class_ids = [2, 3, 4, 5, 6, 7, 9, 10]
             
+        X1, Y1, Z1 = 200, 200, 16
+        coords_x = torch.arange(X1).float()
+        coords_y = torch.arange(Y1).float()
+        coords_z = torch.arange(Z1).float()
+        self.coords = torch.stack(torch.meshgrid([coords_x, coords_y, coords_z])).permute(1, 2, 3, 0)  # W, H, D, 3
+        self.st = torch.tensor([grid_config_occ['x'][0], grid_config_occ['y'][0], grid_config_occ['z'][0]])
+        self.sx = torch.tensor([grid_config_occ['x'][2], grid_config_occ['y'][2], 0.4])
+        self.is_to_d = False
+
     def forward_train(self,
                       points=None,
                       img_metas=None,
@@ -477,21 +486,19 @@ class BEVDepthPano(BEVDepthOCC):
         if w_panoproc == True:
             # # for pano
             inst_xyz = ins_cen_list[0][0]
-            st = torch.tensor([grid_config_occ['x'][0], grid_config_occ['y'][0], grid_config_occ['z'][0]]).to(inst_xyz)
-            sx = torch.tensor([grid_config_occ['x'][2], grid_config_occ['y'][2], 0.4]).to(inst_xyz)
-            inst_xyz = ((inst_xyz - st) / sx).int()
+            if self.is_to_d == False:
+                self.st = self.st.to(inst_xyz)
+                self.sx = self.sx.to(inst_xyz)
+                self.coords = self.coords.to(inst_xyz)
+                self.is_to_d = True
+            
+            inst_xyz = ((inst_xyz - self.st) / self.sx).int()
             
             inst_cls = ins_cen_list[2][0].int()
-            X1, Y1, Z1 = 200, 200, 16
-            coords_x = torch.arange(X1).float()
-            coords_y = torch.arange(Y1).float()
-            coords_z = torch.arange(Z1).float()
-            coords = torch.stack(torch.meshgrid([coords_x, coords_y, coords_z])).permute(1, 2, 3, 0)  # W, H, D, 3
-            coords = coords.to(inst_cls)
             
             inst_num = 18
             inst_occ = torch.tensor(occ_pred).to(inst_cls)
-            for cls_label_num_in_occ in [2, 3, 4, 5, 6, 7, 9, 10]:
+            for cls_label_num_in_occ in self.inst_class_ids:
                 mask = occ_pred == cls_label_num_in_occ
                 if mask.sum() == 0:
                     continue
@@ -499,14 +506,14 @@ class BEVDepthPano(BEVDepthOCC):
                     cls_label_num_in_inst = occind2detind[cls_label_num_in_occ]
                     select_mask = inst_cls==cls_label_num_in_inst
                     if sum(select_mask) > 0:
-                        indices = coords[mask]
+                        indices = self.coords[mask]
                         inst_index_same_cls = inst_xyz[select_mask]
                         select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1).int()
                         inst_occ[mask] = select_ind + 1 + inst_num
                         inst_num += inst_index_same_cls.shape[0]
-                    else:
-                        inst_num += 1
-                        inst_occ[mask] = inst_num
+                    # else:
+                    #     inst_num += 1
+                    #     inst_occ[mask] = inst_num
                     
             result_list[0]['pano_inst'] = inst_occ.cpu().numpy()
 
@@ -684,7 +691,16 @@ class BEVDepth4DPano(BEVDepth4DOCC):
             self.inst_class_ids = kwargs['inst_class_ids']
         else:
             self.inst_class_ids = [2, 3, 4, 5, 6, 7, 9, 10]
-            
+
+        X1, Y1, Z1 = 200, 200, 16
+        coords_x = torch.arange(X1).float()
+        coords_y = torch.arange(Y1).float()
+        coords_z = torch.arange(Z1).float()
+        self.coords = torch.stack(torch.meshgrid([coords_x, coords_y, coords_z])).permute(1, 2, 3, 0)  # W, H, D, 3
+        self.st = torch.tensor([grid_config_occ['x'][0], grid_config_occ['y'][0], grid_config_occ['z'][0]])
+        self.sx = torch.tensor([grid_config_occ['x'][2], grid_config_occ['y'][2], 0.4])
+        self.is_to_d = False
+
     def forward_train(self,
                       points=None,
                       img_metas=None,
@@ -790,72 +806,66 @@ class BEVDepth4DPano(BEVDepth4DOCC):
 
         w_panoproc = kwargs['w_panoproc'] if 'w_panoproc' in kwargs else True
         if w_panoproc == True:
-            # for pano
-            grid_config_occ = {
-                'x': [-40, 40, 0.4],
-                'y': [-40, 40, 0.4],
-                'z': [-1, 5.4, 6.4],
-                'depth': [1.0, 45.0, 1.0],
-            }        
-            # det
-            det_class_name = ['car', 'truck', 'trailer', 'bus', 'construction_vehicle',
-                'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone',
-                'barrier']
+            # # for pano
+            inst_xyz = ins_cen_list[0][0]
+            if self.is_to_d == False:
+                self.st = self.st.to(inst_xyz)
+                self.sx = self.sx.to(inst_xyz)
+                self.coords = self.coords.to(inst_xyz)
+                self.is_to_d = True
+
+            inst_xyz = ((inst_xyz - self.st) / self.sx).int()
             
-            # occ
-            occ_class_names = [
-                'others', 'barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
-                'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck',
-                'driveable_surface', 'other_flat', 'sidewalk',
-                'terrain', 'manmade', 'vegetation', 'free'
-            ]
-            inst_occ = np.ones_like(occ_pred)*255
-
-            inst_xyz = ins_cen_list[0][0].cpu()
-            inst_cls = ins_cen_list[2][0].cpu().int()
-            # insts_index_list = np.array(list(range(len(inst_cls))))
-            inst_num = 0
-            for occ_name in occ_class_names:
-                # occ_name = 'car'
-                cls_label_num_in_occ = occ_class_names.index(occ_name)
-                is_obj = cls_label_num_in_occ in self.inst_class_ids
-                if occ_name in det_class_name:
-                    cls_label_num_in_inst = det_class_name.index(occ_name)
-                else:
-                    is_obj = False
-
-                x_indice, y_indice, z_indice = np.where(occ_pred == cls_label_num_in_occ)
-                indices = np.concatenate([x_indice[:,None], y_indice[:,None], z_indice[:,None]], axis=1)
-                if len(x_indice) == 0:
+            inst_cls = ins_cen_list[2][0].int()
+            
+            inst_num = 18
+            inst_occ = torch.tensor(occ_pred).to(inst_cls)
+            for cls_label_num_in_occ in self.inst_class_ids:
+                mask = occ_pred == cls_label_num_in_occ
+                if mask.sum() == 0:
                     continue
-
-                if is_obj:
-                    select_mask = inst_cls==cls_label_num_in_inst
-                    inst_xyz_same_cls = inst_xyz[select_mask].cpu().numpy()
-                    inst_index_same_cls = np.zeros_like(inst_xyz_same_cls)
-                    # inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0] - 0.4/2)/grid_config_occ['x'][2]).astype(np.int)
-                    # inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0] - 0.4/2)/grid_config_occ['y'][2]).astype(np.int)
-                    # inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0] - 0.4/2)/0.4).astype(np.int)
-                    inst_index_same_cls[:, 0] = ((inst_xyz_same_cls[:, 0] - grid_config_occ['x'][0])/grid_config_occ['x'][2]).astype(np.int)
-                    inst_index_same_cls[:, 1] = ((inst_xyz_same_cls[:, 1] - grid_config_occ['y'][0])/grid_config_occ['y'][2]).astype(np.int)
-                    inst_index_same_cls[:, 2] = ((inst_xyz_same_cls[:, 2] - grid_config_occ['z'][0])/0.4).astype(np.int)
-                    
-                    if inst_index_same_cls.shape[0] > 0:
-                        select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1)
-                        insts_index_list = np.array(list(range(inst_num+0, inst_num+len(select_mask))))
-                        inst_num += len(select_mask)
-                        if len(select_mask) == 1:
-                            insts_index_list_w_same_cls = insts_index_list
-                        else:
-                            insts_index_list_w_same_cls = insts_index_list[select_mask]
-                        inst_occ[x_indice, y_indice, z_indice] = insts_index_list_w_same_cls[select_ind]
-                    else:
-                        inst_num += 1
-                        inst_occ[x_indice, y_indice, z_indice] = inst_num
                 else:
-                    inst_num += 1
-                    inst_occ[x_indice, y_indice, z_indice] = inst_num
-            result_list[0]['pano_inst'] = inst_occ
+                    cls_label_num_in_inst = occind2detind[cls_label_num_in_occ]
+                    select_mask = inst_cls==cls_label_num_in_inst
+                    if sum(select_mask) > 0:
+                        indices = self.coords[mask]
+                        inst_index_same_cls = inst_xyz[select_mask]
+                        select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1).int()
+                        inst_occ[mask] = select_ind + 1 + inst_num
+                        inst_num += inst_index_same_cls.shape[0]
+                    # else:
+                    #     inst_num += 1
+                    #     inst_occ[mask] = inst_num
+                    
+            result_list[0]['pano_inst'] = inst_occ.cpu().numpy()
+
+
+        # # w_panoproc = kwargs['w_panoproc'] if 'w_panoproc' in kwargs else True
+        # # if w_panoproc == True:
+        # #     # # for pano
+        # #     inst_xyz = ins_cen_list[0][0].cpu().numpy()
+        # #     inst_xyz = ((inst_xyz - st) / sx).astype(np.int)
+        # #     inst_cls = ins_cen_list[2][0].int().cpu().numpy()
+        # #     inst_num = 18
+        # #     inst_occ = occ_pred
+        # #     for cls_label_num_in_occ in self.inst_class_ids:
+        # #         mask = occ_pred == cls_label_num_in_occ
+        # #         if mask.sum() == 0:
+        # #             continue
+        # #         else:
+        # #             cls_label_num_in_inst = occind2detind[cls_label_num_in_occ]
+        # #             select_mask = inst_cls==cls_label_num_in_inst
+        # #             if sum(select_mask) > 0:
+        # #                 indices = coords[mask]
+        # #                 inst_index_same_cls = inst_xyz[select_mask]
+        # #                 select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1) #.int()
+        # #                 inst_occ[mask] = select_ind + 1 + inst_num
+        # #                 inst_num += inst_index_same_cls.shape[0]
+        # #             else:
+        # #                 inst_num += 1
+        # #                 inst_occ[mask] = inst_num
+        # #     result_list[0]['pano_inst'] = inst_occ
+
 
         return result_list
 
