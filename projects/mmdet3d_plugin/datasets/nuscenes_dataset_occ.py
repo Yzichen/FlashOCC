@@ -102,16 +102,16 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                 gt_semantics = occ_gt['semantics']      # (Dx, Dy, Dz)
                 mask_lidar = occ_gt['mask_lidar'].astype(bool)      # (Dx, Dy, Dz)
                 mask_camera = occ_gt['mask_camera'].astype(bool)    # (Dx, Dy, Dz)
-                occ_pred = occ_results[data_id]['pred_occ'].cpu().numpy()     # (Dx, Dy, Dz)
-                # occ_pred = occ_results[data_id]['pred_occ']     # (Dx, Dy, Dz)
+                # occ_pred = occ_results[data_id]['pred_occ'].cpu().numpy()     # (Dx, Dy, Dz)
+                occ_pred = occ_results[data_id]['pred_occ']     # (Dx, Dy, Dz)
 
                 lidar_origins.append(output_origin)
                 occ_gts.append(gt_semantics)
                 occ_preds.append(occ_pred)
 
                 if 'pano_inst' in occ_results[data_id].keys():
-                    pano_inst = occ_results[data_id]['pano_inst'].cpu()
-                    # pano_inst = torch.from_numpy(occ_results[data_id]['pano_inst'])
+                    # pano_inst = occ_results[data_id]['pano_inst'].cpu()
+                    pano_inst = torch.from_numpy(occ_results[data_id]['pano_inst'])
                     pano_inst = pano_inst.squeeze(0).numpy()
                     gt_instances = occ_gt['instances']
                     inst_gts.append(gt_instances)
