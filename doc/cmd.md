@@ -12,7 +12,11 @@ bash tool/dist_train.sh projects/configs/flashocc/flashocc-stbase-4d-stereo-512x
 ## 2. Panoptic-FlashOcc
 ### for test
 ```shell script
+conda activate FlashOcc
 exp_name=flashoccv2-r50-depth-tiny-pano
+exp_name=flashoccv2-r50-depth-pano
+exp_name=flashoccv2-r50-depth4d-pano
+exp_name=flashoccv2-r50-depth4d-longterm8f-pano
 bash tools/dist_test.sh \
     projects/configs/flashoccv2/${exp_name}.py \
     work_dirs/${exp_name}/epoch_24_ema.pth \
@@ -28,21 +32,25 @@ bash tools/dist_test.sh \
 
 ### for test inference time
 ```shell script
-exp_name=flashoccv2-r50-depth-tiny-pano
-CUDA_VISIBLE_DEVICES=0 \
+conda activate FlashOcc
+source activate FlashOcc
+                                        # A6000[A100-40g autodl]
+exp_name=flashoccv2-r50-depth-tiny-pano # 25.8[22.61]   27.9[33.93]
+exp_name=flashoccv2-r50-depth-pano      # 21.6[20.83]   23.1[31.45]
+CUDA_VISIBLE_DEVICES=1 \
 python tools/analysis_tools/benchmark.py \
     projects/configs/flashoccv2/${exp_name}.py \
     work_dirs/${exp_name}/epoch_24_ema.pth \
     --w_pano --w_panoproc
 
-exp_name=flashoccv2-r50-depth4d-pano
-CUDA_VISIBLE_DEVICES=0 \
+exp_name=flashoccv2-r50-depth4d-pano            # 18.8[19.2]   21.8[33.65]
+exp_name=flashoccv2-r50-depth4d-longterm8f-pano # 17.7[16.0]   20.5[30.27]
+CUDA_VISIBLE_DEVICES=1 \
 python tools/analysis_tools/benchmark_sequential.py \
     projects/configs/flashoccv2/${exp_name}.py \
     work_dirs/${exp_name}/epoch_24_ema.pth \
     --w_pano --w_panoproc
 
-    --w_pano
 ```
 
 
