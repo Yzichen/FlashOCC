@@ -81,6 +81,14 @@ if __name__ == '__main__':
                     "src/bev_pool_cuda.cu"
                 ],
             ),
+            make_cuda_ext(
+                name="nearest_assign_ext",
+                module="mmdet3d_plugin.ops.nearest_assign",
+                sources=[
+                    "src/nearest_assign.cpp",
+                    "src/nearest_assign_cuda.cu"
+                ],
+            ),
         ],
         cmdclass={'build_ext': BuildExtension},
         zip_safe=False)
