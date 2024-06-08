@@ -35,15 +35,29 @@ occ_class_names = [
 
 det_ind = [2, 3, 4, 5, 6, 7, 9, 10]
 occ_ind = [5, 3, 0, 4, 6, 7, 2, 1]
-occind2detind = {
-    2:5,
+detind2occind = {
+    0:4,
+    1:10,
+    2:9,
     3:3,
-    4:0,
-    5:4,
+    4:5,
+    5:2,
     6:6,
     7:7,
-    9:2,
+    8:8,
+    9:1,
+}
+occind2detind = {
+    4:0,
     10:1,
+    9:2,
+    3:3,
+    5:4,
+    2:5,
+    6:6,
+    7:7,
+    8:8,
+    1:9,
 }
 occind2detind_cuda = [-1, -1, 5, 3, 0, 4, 6, 7, -1, 2, 1]
 
@@ -516,10 +530,10 @@ class BEVDepthPano(BEVDepthOCC):
                         l2s[cls_sort[1+tind].item()] = tind + 1
                    
                 is_cuda = True
-                is_cuda = False
+                # is_cuda = False
                 if is_cuda == True:
-                    inst_id_list = indices
-                    l2s_key = inst_num + indices.new_tensor([k for k in l2s.keys()]).to(torch.int)
+                    inst_id_list = indices + inst_num
+                    l2s_key = indices.new_tensor([detind2occind[k] for k in l2s.keys()]).to(torch.int)
                     inst_occ = nearest_assign(
                         occ_pred.to(torch.int), 
                         l2s_key.to(torch.int),
@@ -528,6 +542,25 @@ class BEVDepthPano(BEVDepthOCC):
                         inst_xyz.to(torch.int),
                         inst_id_list.to(torch.int)
                         )
+
+                    # # print(((inst_occ2-inst_occ).abs() != 0).sum())
+
+                    # # # 38.11 ms
+                    # # for cls_label_num_in_occ in self.inst_class_ids:
+                    # #     mask = occ_pred == cls_label_num_in_occ   # 0.2ms
+                    # #     if mask.sum() == 0:
+                    # #         continue
+                    # #     else:
+                    # #         cls_label_num_in_inst = occind2detind[cls_label_num_in_occ]
+                    # #         select_mask = inst_cls==cls_label_num_in_inst
+                    # #         if sum(select_mask) > 0:
+                    # #             indices = self.coords[mask]
+                    # #             inst_index_same_cls = inst_xyz[select_mask]
+                    # #             select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1).int()
+                    # #             inst_occ[mask] = select_ind + inst_num + l2s[cls_label_num_in_inst]
+                
+                    # # print(((inst_occ2-inst_occ).abs() != 0).sum())
+                    # # print("===============")
                 else:
                     # 38.11 ms
                     for cls_label_num_in_occ in self.inst_class_ids:
