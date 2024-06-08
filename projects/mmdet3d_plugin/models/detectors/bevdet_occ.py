@@ -542,29 +542,9 @@ class BEVDepthPano(BEVDepthOCC):
                         inst_xyz.to(torch.int),
                         inst_id_list.to(torch.int)
                         )
-
-                    # # print(((inst_occ2-inst_occ).abs() != 0).sum())
-
-                    # # # 38.11 ms
-                    # # for cls_label_num_in_occ in self.inst_class_ids:
-                    # #     mask = occ_pred == cls_label_num_in_occ   # 0.2ms
-                    # #     if mask.sum() == 0:
-                    # #         continue
-                    # #     else:
-                    # #         cls_label_num_in_inst = occind2detind[cls_label_num_in_occ]
-                    # #         select_mask = inst_cls==cls_label_num_in_inst
-                    # #         if sum(select_mask) > 0:
-                    # #             indices = self.coords[mask]
-                    # #             inst_index_same_cls = inst_xyz[select_mask]
-                    # #             select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1).int()
-                    # #             inst_occ[mask] = select_ind + inst_num + l2s[cls_label_num_in_inst]
-                
-                    # # print(((inst_occ2-inst_occ).abs() != 0).sum())
-                    # # print("===============")
                 else:
-                    # 38.11 ms
                     for cls_label_num_in_occ in self.inst_class_ids:
-                        mask = occ_pred == cls_label_num_in_occ   # 0.2ms
+                        mask = occ_pred == cls_label_num_in_occ
                         if mask.sum() == 0:
                             continue
                         else:
@@ -576,34 +556,7 @@ class BEVDepthPano(BEVDepthOCC):
                                 select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1).int()
                                 inst_occ[mask] = select_ind + inst_num + l2s[cls_label_num_in_inst]
                 
-                
             result_list[0]['pano_inst'] = inst_occ #.cpu().numpy()
-
-        # # w_panoproc = kwargs['w_panoproc'] if 'w_panoproc' in kwargs else True
-        # # if w_panoproc == True:
-        # #     # # for pano
-        # #     inst_xyz = ins_cen_list[0][0].cpu().numpy()
-        # #     inst_xyz = ((inst_xyz - st) / sx).astype(np.int)
-        # #     inst_cls = ins_cen_list[2][0].int().cpu().numpy()
-        # #     inst_num = 18
-        # #     inst_occ = occ_pred
-        # #     for cls_label_num_in_occ in self.inst_class_ids:
-        # #         mask = occ_pred == cls_label_num_in_occ
-        # #         if mask.sum() == 0:
-        # #             continue
-        # #         else:
-        # #             cls_label_num_in_inst = occind2detind[cls_label_num_in_occ]
-        # #             select_mask = inst_cls==cls_label_num_in_inst
-        # #             if sum(select_mask) > 0:
-        # #                 indices = coords[mask]
-        # #                 inst_index_same_cls = inst_xyz[select_mask]
-        # #                 select_ind = ((indices[:,None,:] - inst_index_same_cls[None,:,:])**2).sum(-1).argmin(axis=1) #.int()
-        # #                 inst_occ[mask] = select_ind + 1 + inst_num
-        # #                 inst_num += inst_index_same_cls.shape[0]
-        # #             else:
-        # #                 inst_num += 1
-        # #                 inst_occ[mask] = inst_num
-        # #     result_list[0]['pano_inst'] = inst_occ
 
         return result_list
 
