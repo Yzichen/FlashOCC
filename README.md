@@ -1,4 +1,5 @@
 # FlashOcc: Fast and Memory-Efficient Occupancy Prediction via Channel-to-Height Plugin
+# Panoptic-FlashOcc: An Efficient Baseline to Marry Semantic Occupancy with Panoptic via Instance Center
 
 <div align="left">
   <img src="figs/performance.png"/>
