@@ -6,7 +6,7 @@
 * Please note that the FPS here is measured with A100 GPU (PyTorch fp32 backend).
 
 ## News
-- **2024.06.10** Release the code for Panoptic-FlashOCCV2
+- **2024.06.10** Release the code for Panoptic-FlashOCC
 - **2024.04.17** Support for ray-iou metric
 - **2024.03.22** Release the code for FlashOCCV2
 - **2024.02.03** [Release the training code for FlashOcc on UniOcc](https://github.com/drilistbox/FlashOCC_on_UniOcc_and_RenderOCC)
