@@ -239,3 +239,78 @@ class CenterPointBBoxCoder(BaseBBoxCoder):
                 'support post_center_range is not None for now!')
 
         return predictions_dicts
+
+    def center_decode(self,
+               heat,
+               hei,
+               reg=None,
+               task_id=-1):
+        batch, cat, _, _ = heat.size()
+
+        # (B, K)
+        scores, inds, clses, ys, xs = self._topk(heat, K=self.max_num)
+
+        if reg is not None:
+            reg = self._transpose_and_gather_feat(reg, inds)    # (B, K, 2)
+            reg = reg.view(batch, self.max_num, 2)
+            xs = xs.view(batch, self.max_num, 1) + reg[:, :, 0:1]    # (B, K, 1) + (B, K, 1) --> (B, K, 1)
+            ys = ys.view(batch, self.max_num, 1) + reg[:, :, 1:2]    # (B, K, 1) + (B, K, 1) --> (B, K, 1)
+        else:
+            xs = xs.view(batch, self.max_num, 1) + 0.5
+            ys = ys.view(batch, self.max_num, 1) + 0.5
+
+        # height in the bev
+        hei = self._transpose_and_gather_feat(hei, inds)
+        hei = hei.view(batch, self.max_num, 1)      # (B, K, 1)
+
+        # class label
+        clses = clses.view(batch, self.max_num).float()     # (B, K)
+        scores = scores.view(batch, self.max_num)   # (B, K)
+
+        # 计算真实的bev坐标.
+        xs = xs.view(
+            batch, self.max_num,
+            1) * self.out_size_factor * self.voxel_size[0] + self.pc_range[0]
+        ys = ys.view(
+            batch, self.max_num,
+            1) * self.out_size_factor * self.voxel_size[1] + self.pc_range[1]
+
+        final_center_preds = torch.cat([xs, ys, hei], dim=2)
+        final_scores = scores
+        final_preds = clses
+
+        # use score threshold
+        if self.score_threshold is not None:
+            thresh_mask = final_scores > self.score_threshold   # (B, K)
+
+        if self.post_center_range is not None:
+            self.post_center_range = torch.tensor(
+                self.post_center_range, device=heat.device)
+            mask = (final_center_preds[..., :3] >=
+                    self.post_center_range[:3]).all(2)      # (B, K, 3) --> (B, K)
+            mask &= (final_center_preds[..., :3] <=
+                     self.post_center_range[3:]).all(2)     # (B, K, 3) --> (B, K)
+
+            predictions_dicts = []
+            for i in range(batch):
+                cmask = mask[i, :]      # (K, )
+                if self.score_threshold:
+                    cmask &= thresh_mask[i]     # (K, )
+
+                centers = final_center_preds[i, cmask]     # (K', 9)
+                scores = final_scores[i, cmask]         # (K', )
+                labels = final_preds[i, cmask]          # (K', )
+                predictions_dict = {
+                    'centers': centers,      # (K', 9)
+                    'scores': scores,       # (K', )
+                    'labels': labels        # (K', )
+                }
+
+                # List[p_dict0, p_dict1, ...]   len = batch_size
+                predictions_dicts.append(predictions_dict)
+        else:
+            raise NotImplementedError(
+                'Need to reorganize output as a batch, only '
+                'support post_center_range is not None for now!')
+
+        return predictions_dicts
