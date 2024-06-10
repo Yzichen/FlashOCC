@@ -529,8 +529,9 @@ class BEVDepthPano(BEVDepthOCC):
                 # #     if tind_list[tind] == True:
                 # #         l2s[cls_sort[1+tind].item()] = tind + 1
                 tind_list = (cls_sort[1:] - cls_sort[:-1])!=0
-                for tind in torch.range(0,len(tind_list)-1)[tind_list]:
-                    l2s[cls_sort[1+int(tind.item())].item()] = int(tind.item()) + 1
+                if tind_list.__len__() > 0:
+                    for tind in torch.range(0,len(tind_list)-1)[tind_list]:
+                        l2s[cls_sort[1+int(tind.item())].item()] = int(tind.item()) + 1
 
                 is_cuda = True
                 # is_cuda = False
@@ -851,8 +852,9 @@ class BEVDepth4DPano(BEVDepth4DOCC):
                 # #     if tind_list[tind] == True:
                 # #         l2s[cls_sort[1+tind].item()] = tind + 1
                 tind_list = (cls_sort[1:] - cls_sort[:-1])!=0
-                for tind in torch.range(0,len(tind_list)-1)[tind_list]:
-                    l2s[cls_sort[1+int(tind.item())].item()] = int(tind.item()) + 1
+                if tind_list.__len__() > 0:
+                    for tind in torch.range(0,len(tind_list)-1)[tind_list]:
+                        l2s[cls_sort[1+int(tind.item())].item()] = int(tind.item()) + 1
 
                 is_cuda = True
                 # is_cuda = False

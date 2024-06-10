@@ -117,10 +117,10 @@ class NuScenesDatasetOccpancy(NuScenesDataset):
                     inst_gts.append(gt_instances)
                     inst_preds.append(pano_inst)
                     
-            # # eval_results = calc_rayiou(occ_preds, occ_gts, lidar_origins)
-            # # if len(inst_preds) > 0:
-            # #     eval_results.update(main_raypq(occ_preds, occ_gts, inst_preds, inst_gts, lidar_origins))
-            eval_results = main_raypq(occ_preds, occ_gts, inst_preds, inst_gts, lidar_origins)
+            eval_results = calc_rayiou(occ_preds, occ_gts, lidar_origins)
+            if len(inst_preds) > 0:
+                eval_results.update(main_raypq(occ_preds, occ_gts, inst_preds, inst_gts, lidar_origins))
+            # eval_results = main_raypq(occ_preds, occ_gts, inst_preds, inst_gts, lidar_origins)
         else:
             self.occ_eval_metrics = Metric_mIoU(
                 num_classes=18,
