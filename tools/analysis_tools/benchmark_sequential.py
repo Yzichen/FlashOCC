@@ -106,12 +106,6 @@ def main():
     pure_inf_time = 0
 
     # benchmark with several samples and take the average
-    # # for i, data_ori in enumerate(data_loader):
-    # #     if i == 0:
-    # #         break
-    # # import copy
-    # # for i in range(500):
-    # #     data = copy.deepcopy(data_ori)
     for i, data in enumerate(data_loader):
         inputs = [d.cuda() for d in data['img_inputs'][0]]
         with torch.no_grad():
