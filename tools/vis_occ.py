@@ -231,51 +231,6 @@ def main():
         os.makedirs(args.viz_dir)
         
     for i, data in tqdm(enumerate(val_loader)):
-        if i not in [ \
-                        # 0, \
-                        # 2, \
-                        # 3, \
-                        # 4, \
-                        # 6, \
-                        # 7, \
-                        # 8, \
-                        # 9, \
-                        # 10, \
-                        # 11, \
-                        # 12, \
-                        # 13, \
-                        # 14, \
-                        # 15, \
-                        # 16, \
-                        # 15, \
-                        25, \
-                        26, \
-                        27, \
-                        28, \
-                        55, \
-                        # 78, \
-                        # 341, \
-                        # 492, \
-                        # 777, \
-                        # 914, \
-                        # 1169, \
-                        # 2144, \
-                        # 2732, \
-                        # 3706, \
-                        3960, \
-                        # 5881, \
-                        242, \
-                        467, \
-                        # 494, \
-                        # 849, \
-                        # 1164, \
-                        1226, \
-                        # 2162, \
-                        # 2825, \
-                        3825, \
-                        5868,]:
-            continue
-        #print(data['img_metas'].data[0][0]['filename'][:6])
 
         with torch.no_grad():
             occ_pred = model(return_loss=False, rescale=True, **data)[0]
