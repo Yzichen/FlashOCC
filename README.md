@@ -20,6 +20,8 @@
 <!-- ## Introduction -->
 
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2311.12058)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/pdf/2406.10527)
+
 
 This repository is an official implementation of [FlashOCC](https://arxiv.org/abs/2311.12058) 
 
@@ -27,7 +29,7 @@ This repository is an official implementation of [FlashOCC](https://arxiv.org/ab
   <img src="figs/overview.png"/>
 </div><br/>
 
-and [Panoptic-FlashOCC]()
+and [Panoptic-FlashOCC](https://arxiv.org/pdf/2406.10527)
 
 <div align="center">
   <img src="figs/panoptic_flashOcc.jpg"/>
