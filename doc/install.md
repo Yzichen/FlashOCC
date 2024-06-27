@@ -70,6 +70,12 @@ step 4. For Occupancy Prediction task, download (only) the 'gts' from [CVPR2023-
             ├── bevdetv2-nuscenes_infos_train.pkl (new)
             └── bevdetv2-nuscenes_infos_val.pkl (new)
 ```
+(for panoptic occupancy), we follow the data setting in SparseOcc:
+
+(1) Download Occ3D-nuScenes occupancy GT from [gdrive](https://drive.google.com/file/d/1kiXVNSEi3UrNERPMz_CfiJXKkgts_5dY/view?usp=drive_link), unzip it, and save it to `data/nuscenes/occ3d`.
+
+(2) Generate the panoptic occupancy ground truth with `gen_instance_info.py`. The panoptic version of Occ3D will be saved to `data/nuscenes/occ3d_panoptic`.
+
 
 step 5. CKPTS Preparation
 (1) Download flashocc-r50-256x704.pth[https://drive.google.com/file/d/1k9BzXB2nRyvXhqf7GQx3XNSej6Oq6I-B/view] to Path_to_FlashOcc/FlashOcc/ckpts/, then run:
