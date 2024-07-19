@@ -3,7 +3,7 @@ _base_ = ['../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
 
 plugin = True
 plugin_dir = 'projects/mmdet3d_plugin/'
-point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
+point_cloud_range = [-40.0, -40.0, -5.0, 40.0, 40.0, 3.0]
 # For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
@@ -40,7 +40,7 @@ voxel_size = [0.1, 0.1, 0.2]
 numC_Trans = 80
 
 model = dict(
-    type='BEVDepthOCC',     # single-frame
+    type='BEVDepthPano',     # single-frame
     img_backbone=dict(
         type='ResNet',
         depth=50,
@@ -77,6 +77,35 @@ model = dict(
         type='FPN_LSS',
         in_channels=numC_Trans * 8 + numC_Trans * 2,
         out_channels=256),
+    aux_centerness_head=dict(
+        type='Centerness_Head',
+        task_specific_weight=[1, 1, 0, 0, 0],
+        in_channels=256,
+        tasks=[
+            dict(num_class=10, class_names=['car', 'truck',
+                                            'construction_vehicle',
+                                            'bus', 'trailer',
+                                            'barrier',
+                                            'motorcycle', 'bicycle',
+                                            'pedestrian', 'traffic_cone']),
+        ],
+        common_heads=dict(
+            reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2), vel=(2, 2)),
+        share_conv_channel=64,
+        bbox_coder=dict(
+            type='CenterPointBBoxCoder',
+            pc_range=point_cloud_range[:2],
+            post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
+            max_num=500,
+            score_threshold=0.3, # 
+            out_size_factor=4,
+            voxel_size=voxel_size[:2],
+            code_size=9),
+        separate_head=dict(
+            type='SeparateHead', init_bias=-2.19, final_kernel=3),
+        loss_cls=dict(type='GaussianFocalLoss', reduction='mean'),
+        loss_bbox=dict(type='L1Loss', reduction='mean', loss_weight=0.25),
+        norm_bbox=True),
     occ_head=dict(
         type='BEVOCCHead2D_V2',
         in_dim=256,
@@ -91,7 +120,37 @@ model = dict(
             use_sigmoid=True,
             loss_weight=1.0
         ),
-    )
+    ),
+    # model training and testing settings
+    train_cfg=dict(
+        pts=dict(
+            point_cloud_range=point_cloud_range,
+            grid_size=[800, 800, 40],
+            voxel_size=voxel_size,
+            out_size_factor=4,
+            dense_reg=1,
+            gaussian_overlap=0.1,
+            max_objs=500,
+            min_radius=2,
+            code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2])),
+    test_cfg=dict(
+        pts=dict(
+            max_per_img=500,
+            max_pool_nms=False,
+            min_radius=[4, 12, 10, 1, 0.85, 0.175],
+            score_threshold=0.1,
+            out_size_factor=4,
+            voxel_size=voxel_size[:2],
+            pre_max_size=1000,
+            post_max_size=500,
+
+            # Scale-NMS
+            nms_type=['rotate'],
+            nms_thr=[0.2],
+            nms_rescale_factor=[[1.0, 0.7, 0.7, 0.4, 0.55,
+                                 1.1, 1.0, 1.0, 1.5, 3.5]]
+        )
+    ),
 )
 
 # Data
@@ -225,48 +284,53 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=5)
 
 
 # use_mask = False
-# ===> per class IoU of 6019 samples:
-# ===> others - IoU = 10.35
-# ===> barrier - IoU = 39.8
-# ===> bicycle - IoU = 21.72
-# ===> bus - IoU = 39.62
-# ===> car - IoU = 40.56
-# ===> construction_vehicle - IoU = 21.11
-# ===> motorcycle - IoU = 24.66
-# ===> pedestrian - IoU = 22.87
-# ===> traffic_cone - IoU = 24.22
-# ===> trailer - IoU = 25.98
-# ===> truck - IoU = 29.65
-# ===> driveable_surface - IoU = 58.07
-# ===> other_flat - IoU = 31.47
-# ===> sidewalk - IoU = 34.08
-# ===> terrain - IoU = 31.23
-# ===> manmade - IoU = 18.01
-# ===> vegetation - IoU = 18.1
-# ===> mIoU of 6019 samples: 28.91
-
-
 # +----------------------+----------+----------+----------+
 # |     Class Names      | RayIoU@1 | RayIoU@2 | RayIoU@4 |
 # +----------------------+----------+----------+----------+
-# |        others        |  0.089   |  0.100   |  0.103   |
-# |       barrier        |  0.378   |  0.436   |  0.459   |
-# |       bicycle        |  0.215   |  0.252   |  0.261   |
-# |         bus          |  0.510   |  0.617   |  0.681   |
-# |         car          |  0.480   |  0.559   |  0.590   |
-# | construction_vehicle |  0.182   |  0.260   |  0.289   |
-# |      motorcycle      |  0.208   |  0.294   |  0.315   |
-# |      pedestrian      |  0.294   |  0.345   |  0.360   |
-# |     traffic_cone     |  0.272   |  0.304   |  0.312   |
-# |       trailer        |  0.206   |  0.280   |  0.367   |
-# |        truck         |  0.386   |  0.490   |  0.546   |
-# |  driveable_surface   |  0.531   |  0.615   |  0.705   |
-# |      other_flat      |  0.281   |  0.319   |  0.350   |
-# |       sidewalk       |  0.233   |  0.279   |  0.327   |
-# |       terrain        |  0.228   |  0.296   |  0.360   |
-# |       manmade        |  0.278   |  0.353   |  0.406   |
-# |      vegetation      |  0.177   |  0.276   |  0.364   |
+# |        others        |  0.090   |  0.102   |  0.105   |
+# |       barrier        |  0.387   |  0.442   |  0.465   |
+# |       bicycle        |  0.218   |  0.257   |  0.265   |
+# |         bus          |  0.514   |  0.613   |  0.669   |
+# |         car          |  0.487   |  0.564   |  0.592   |
+# | construction_vehicle |  0.176   |  0.254   |  0.288   |
+# |      motorcycle      |  0.203   |  0.292   |  0.310   |
+# |      pedestrian      |  0.301   |  0.349   |  0.366   |
+# |     traffic_cone     |  0.280   |  0.313   |  0.321   |
+# |       trailer        |  0.227   |  0.313   |  0.390   |
+# |        truck         |  0.395   |  0.493   |  0.537   |
+# |  driveable_surface   |  0.534   |  0.618   |  0.708   |
+# |      other_flat      |  0.289   |  0.326   |  0.356   |
+# |       sidewalk       |  0.234   |  0.280   |  0.329   |
+# |       terrain        |  0.222   |  0.291   |  0.356   |                                                                                                                                                                                                                                                        
+# |       manmade        |  0.280   |  0.351   |  0.401   |                                                                                                                                                                                                                                                        
+# |      vegetation      |  0.176   |  0.273   |  0.359   |
 # +----------------------+----------+----------+----------+
-# |         MEAN         |  0.291   |  0.357   |  0.400   |
+# |         MEAN         |  0.295   |  0.361   |  0.401   |
 # +----------------------+----------+----------+----------+
-# {'RayIoU': 0.34939466889746956, 'RayIoU@1': 0.29110391692490867, 'RayIoU@2': 0.3573914069210632, 'RayIoU@4': 0.39968868284643677}
+
+
+# +----------------------+---------+---------+---------+
+# |     Class Names      | RayPQ@1 | RayPQ@2 | RayPQ@4 |
+# +----------------------+---------+---------+---------+
+# |        others        |  0.017  |  0.025  |  0.026  |
+# |       barrier        |  0.125  |  0.182  |  0.218  |
+# |       bicycle        |  0.051  |  0.072  |  0.076  |
+# |         bus          |  0.275  |  0.366  |  0.422  |
+# |         car          |  0.242  |  0.332  |  0.356  |
+# | construction_vehicle |  0.016  |  0.058  |  0.092  |
+# |      motorcycle      |  0.071  |  0.124  |  0.137  |
+# |      pedestrian      |  0.017  |  0.022  |  0.023  |
+# |     traffic_cone     |  0.032  |  0.040  |  0.044  |
+# |       trailer        |  0.035  |  0.055  |  0.063  |
+# |        truck         |  0.145  |  0.232  |  0.282  |
+# |  driveable_surface   |  0.410  |  0.537  |  0.665  |
+# |      other_flat      |  0.062  |  0.087  |  0.109  |
+# |       sidewalk       |  0.008  |  0.030  |  0.064  |
+# |       terrain        |  0.010  |  0.026  |  0.047  |
+# |       manmade        |  0.054  |  0.091  |  0.134  |
+# |      vegetation      |  0.003  |  0.022  |  0.092  |
+# +----------------------+---------+---------+---------+
+# |         MEAN         |  0.092  |  0.135  |  0.168  |
+# +----------------------+---------+---------+---------+
+# {'RayIoU': 0.35223182059688496, 'RayIoU@1': 0.29499743138394385, 'RayIoU@2': 0.3607063492639709, 'RayIoU@4': 0.4009916811427401, 'RayPQ': 0.13182524545677765, 'RayPQ@1': 0.09247682620339576, 'RayPQ@2': 0.1354024129684159, 'RayPQ@4': 0.16759649719852124}
+
