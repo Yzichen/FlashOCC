@@ -1,8 +1,15 @@
 # FlashOcc: Fast and Memory-Efficient Occupancy Prediction via Channel-to-Height Plugin
+
+
+<div align="left">
+  <img src="figs/performance_flashocc.jpg"  width="1500px" />
+</div><br/>
+* Please note that the FPS here is measured with RTX3090 TensorRT FP16.
+
 # Panoptic-FlashOcc: An Efficient Baseline to Marry Semantic Occupancy with Panoptic via Instance Center
 
 <div align="left">
-  <img src="figs/performance.png"/>
+  <img src="figs/performance.png"  width="1500px"/>
 </div><br/>
 * Please note that the FPS here is measured with A100 GPU (PyTorch fp32 backend).
 
