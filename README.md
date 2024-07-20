@@ -94,8 +94,12 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
 | TRT-INT8(PTQ)                                   | 29.59 | 397.0 |
 
 4. [Visualization](doc/visualization.md)
+ * [flashocc] : A detail video can be found at [baidu](https://pan.baidu.com/s/1xfnFsj5IclpjJxIaOlI6dA?pwd=gype)
+<div align="center">
+  <img src="figs/visualization.png"/>
+</div><br/>
 
- * first row is our prediction and second row is gt.
+ * [panoptic-flashocc] : first row is our prediction and second row is gt.
 <div align="center">
   <img src="figs/sem.png"/>
 </div><br/>
@@ -104,7 +108,6 @@ FPS are tested via TensorRT on 3090 with FP16 precision. Please refer to Tab.2 i
   <img src="figs/pano.png"/>
 </div><br/>
 
-A detail video can be found at [baidu](https://pan.baidu.com/s/1xfnFsj5IclpjJxIaOlI6dA?pwd=gype)
 
 5. [TensorRT Implement Writen In C++ With Cuda Acceleration](https://github.com/drilistbox/TRT_FlashOcc)
 
