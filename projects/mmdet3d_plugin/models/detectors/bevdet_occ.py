@@ -186,8 +186,10 @@ class BEVDetOCC(BEVDet):
             occ_preds: List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         """
         outs = self.occ_head(img_feats)
-        # occ_preds = self.occ_head.get_occ(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
-        occ_preds = self.occ_head.get_occ_gpu(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        if not hasattr(self.occ_head, "get_occ_gpu"):
+            occ_preds = self.occ_head.get_occ(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
+        else:
+            occ_preds = self.occ_head.get_occ_gpu(outs, img_metas)      # List[(Dx, Dy, Dz), (Dx, Dy, Dz), ...]
         return occ_preds
 
     def forward_dummy(self,
