@@ -14,6 +14,7 @@
 * Please note that the FPS here is measured with A100 GPU (PyTorch fp32 backend).
 
 ## News
+- **2024.09.16** Technical Report: FlashOcc can be insert to Bevdet with 1.1ms consumption while facilitating each other.[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2409.11160)
 - **2024.09.16** [Selected as reference algorithm for occupancy on horizon J6E/M](https://zhuanlan.zhihu.com/p/720461546)
 - **2024.06.10** Release the code for Panoptic-FlashOCC
 - **2024.04.17** Support for ray-iou metric
@@ -29,6 +30,7 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2311.12058)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/pdf/2406.10527)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2409.11160)
 
 
 This repository is an official implementation of [FlashOCC](https://arxiv.org/abs/2311.12058) 
@@ -121,6 +123,20 @@ Many thanks to the authors of [BEVDet](https://github.com/HuangJunJie2017/BEVDet
 If this work is helpful for your research, please consider citing the following BibTeX entry.
 
 ```
+@article{yu2024ultimatedo,
+  title={UltimateDO: An Efficient Framework to Marry Occupancy Prediction with 3D Object Detection via Channel2height},
+  author={Yu, Zichen and Shu, Changyong},
+  journal={arXiv preprint arXiv:2409.11160},
+  year={2024}
+}
+
+@article{yu2024panoptic,
+  title={Panoptic-FlashOcc: An Efficient Baseline to Marry Semantic Occupancy with Panoptic via Instance Center},
+  author={Yu, Zichen and Shu, Changyong and Sun, Qianpu and Linghu, Junjie and Wei, Xiaobao and Yu, Jiangyong and Liu, Zongdai and Yang, Dawei and Li, Hui and Chen, Yan},
+  journal={arXiv preprint arXiv:2406.10527},
+  year={2024}
+}
+
 @article{yu2023flashocc,
       title={FlashOcc: Fast and Memory-Efficient Occupancy Prediction via Channel-to-Height Plugin}, 
       author={Zichen Yu and Changyong Shu and Jiajun Deng and Kangjie Lu and Zongdai Liu and Jiangyong Yu and Dawei Yang and Hui Li and Yan Chen},
@@ -129,5 +145,4 @@ If this work is helpful for your research, please consider citing the following 
       archivePrefix={arXiv},
       primaryClass={cs.CV}
 }
-
 ```
