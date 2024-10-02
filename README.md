@@ -14,6 +14,7 @@
 * Please note that the FPS here is measured with A100 GPU (PyTorch fp32 backend).
 
 ## News
+- **2024.09.16** [Selected as reference algorithm for occupancy on horizon J6E/M](https://zhuanlan.zhihu.com/p/720461546)
 - **2024.06.10** Release the code for Panoptic-FlashOCC
 - **2024.04.17** Support for ray-iou metric
 - **2024.03.22** Release the code for FlashOCCV2
