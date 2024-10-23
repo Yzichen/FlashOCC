@@ -10,8 +10,8 @@ python tools/analysis_tools/vis_occ.py work_dirs/flashocc_r50/results/ --root_pa
 # Panoptic-FlashOcc
 ```shell
 
-exp_name=flashoccv2-r50-depth4d-longterm8f-pano
-python tools/vis_occ.py --config projects/configs/flashoccv2/${exp_name}.py --weights work_dirs/${exp_name}/epoch_24_ema.pth --viz-dir vis/${exp_name} --draw-pano-gt --draw-gt
+exp_name=panoptic-flashocc-r50-depth4d-longterm8f-pano
+python tools/vis_occ.py --config projects/configs/panoptic-flashocc/${exp_name}.py --weights work_dirs/${exp_name}/epoch_24_ema.pth --viz-dir vis/${exp_name} --draw-pano-gt
 
 ```
 

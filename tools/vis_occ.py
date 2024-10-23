@@ -73,6 +73,18 @@ color_map = np.array([
 # # hex_code_list = np.array(hex_code_list).reshape(6,10).transpose(1,0).reshape(-1)
 # # pano_color_map = np.array([[int(value * 255) for value in colors.hex2color(hex_code)] for hex_code in hex_code_list], dtype=np.uint8)
 
+import matplotlib.pyplot as plt
+from scipy.ndimage import rotate
+def draw_fig(tensor, name='tensor_image_colored_no_white.png'):
+    tensor = tensor.squeeze(0)
+    tensor = rotate(tensor, -90, reshape=False)
+    tensor = np.flip(tensor, axis=1)
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.imshow(tensor, cmap='viridis')
+    plt.axis('off')
+    plt.savefig(name, bbox_inches='tight', pad_inches=0)
+    plt.clf()
+    
 def generate_rgb_color(number):
     red = (number % 256)
     green = ((number // 256) % 256)
@@ -235,12 +247,35 @@ def main():
         with torch.no_grad():
             occ_pred = model(return_loss=False, rescale=True, **data)[0]
 
+            if False:
+                occ_bev_feature = occ_pred['occ_bev_feature']
+                outs = occ_pred['outs']
+
+                tensor = occ_bev_feature.max(dim=1)[0].cpu()
+                draw_fig(tensor, name=os.path.join(args.viz_dir, '%04d-occ_bev_feature.jpg' % i))
+                print(os.path.join(args.viz_dir, '%04d-occ_bev_feature.jpg' % i))
+
+                tensor = outs[0][0]['heatmap'].sigmoid().sum(dim=1)[0].cpu()
+                draw_fig(tensor, name=os.path.join(args.viz_dir, '%04d-heatmap.jpg' % i))
+                print(os.path.join(args.viz_dir, '%04d-heatmap.jpg' % i))
+
+                tensor = outs[0][0]['reg'][0,0].cpu()
+                tensor = outs[0][0]['reg'][0,1].cpu()
+                tensor = ((outs[0][0]['reg'][0,0]**2+outs[0][0]['reg'][0,1]**2)**0.5).unsqueeze(dim=0).cpu()
+                draw_fig(tensor, name=os.path.join(args.viz_dir, '%04d-reg.jpg' % i))
+                print(os.path.join(args.viz_dir, '%04d-reg.jpg' % i))
+
+                tensor = outs[0][0]['height'][0,0].cpu()
+                draw_fig(tensor, name=os.path.join(args.viz_dir, '%04d-height.jpg' % i))
+                print(os.path.join(args.viz_dir, '%04d-height.jpg' % i))
+
+
             sem_pred = occ_pred['pred_occ']
-            cv2.imwrite(os.path.join(args.viz_dir, '%04d-sem.jpg' % i), occ2img(semantics=sem_pred)[..., ::-1])
+            cv2.imwrite(os.path.join(args.viz_dir, '%04d-sem.jpg' % i), occ2img(semantics=sem_pred.cpu())[..., ::-1])
             print(os.path.join(args.viz_dir, '%04d-sem.jpg' % i))
             
             inst_pred = occ_pred['pano_inst']
-            cv2.imwrite(os.path.join(args.viz_dir, '%04d-inst.jpg' % i), occ2img(semantics=sem_pred, is_pano=True, panoptics=inst_pred)[..., ::-1])
+            cv2.imwrite(os.path.join(args.viz_dir, '%04d-inst.jpg' % i), occ2img(semantics=sem_pred.cpu(), is_pano=True, panoptics=inst_pred.cpu())[..., ::-1])
             print(os.path.join(args.viz_dir, '%04d-inst.jpg' % i))
             
             if args.surround_view_img:
@@ -263,7 +298,7 @@ def main():
 
             if args.draw_sem_gt:
                 # sem_gt = np.array(data['voxel_semantics'][0])[0]
-                cv2.imwrite(os.path.join(args.viz_dir, '%04d-sem-gt.jpg' % i), occ2img(semantics=sem_gt)[..., ::-1])
+                cv2.imwrite(os.path.join(args.viz_dir, '%04d-sem-gt.jpg' % i), occ2img(semantics=sem_gt.cpu())[..., ::-1])
 
             if args.draw_pano_gt:
                 cv2.imwrite(os.path.join(args.viz_dir, '%04d-pano-gt.jpg' % i), occ2img(semantics=sem_gt, is_pano=True, panoptics=pano_gt)[..., ::-1])
